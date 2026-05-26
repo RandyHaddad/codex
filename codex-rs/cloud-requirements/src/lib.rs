@@ -22,6 +22,7 @@ use codex_config::ConfigRequirementsToml;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_core::util::backoff;
 use codex_login::AuthManager;
+use codex_login::CliAuthKeyringBackendKind;
 use codex_login::CodexAuth;
 use codex_login::RefreshTokenError;
 use codex_protocol::account::PlanType;
@@ -739,6 +740,7 @@ pub async fn cloud_requirements_loader_for_storage(
         enable_codex_api_key_env,
         credentials_store_mode,
         Some(chatgpt_base_url.clone()),
+        CliAuthKeyringBackendKind::default(),
     )
     .await;
     cloud_requirements_loader(auth_manager, chatgpt_base_url, codex_home)
@@ -841,6 +843,7 @@ mod tests {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use codex_config::AppToolApproval;
     use codex_config::types::AuthCredentialsStoreMode;
+    use codex_login::CliAuthKeyringBackendKind;
     use codex_login::auth::AgentIdentityAuth;
     use codex_login::auth::AgentIdentityAuthRecord;
     use codex_protocol::protocol::AskForApproval;
@@ -895,6 +898,7 @@ mod tests {
                 /*enable_codex_api_key_env*/ false,
                 AuthCredentialsStoreMode::File,
                 /*chatgpt_base_url*/ None,
+                CliAuthKeyringBackendKind::default(),
             )
             .await,
         )
@@ -923,6 +927,7 @@ mod tests {
                 /*enable_codex_api_key_env*/ false,
                 AuthCredentialsStoreMode::File,
                 /*chatgpt_base_url*/ None,
+                CliAuthKeyringBackendKind::default(),
             )
             .await,
         )
@@ -1035,6 +1040,7 @@ mod tests {
                     /*enable_codex_api_key_env*/ false,
                     AuthCredentialsStoreMode::File,
                     /*chatgpt_base_url*/ None,
+                    CliAuthKeyringBackendKind::default(),
                 )
                 .await,
             ),
@@ -1620,6 +1626,7 @@ command = "sample-mcp"
                 /*enable_codex_api_key_env*/ false,
                 AuthCredentialsStoreMode::File,
                 /*chatgpt_base_url*/ None,
+                CliAuthKeyringBackendKind::default(),
             )
             .await,
         );
@@ -1702,6 +1709,7 @@ command = "sample-mcp"
                 /*enable_codex_api_key_env*/ false,
                 AuthCredentialsStoreMode::File,
                 /*chatgpt_base_url*/ None,
+                CliAuthKeyringBackendKind::default(),
             )
             .await,
         );
@@ -1843,6 +1851,7 @@ command = "sample-mcp"
                 /*enable_codex_api_key_env*/ false,
                 AuthCredentialsStoreMode::File,
                 /*chatgpt_base_url*/ None,
+                CliAuthKeyringBackendKind::default(),
             )
             .await,
         );
