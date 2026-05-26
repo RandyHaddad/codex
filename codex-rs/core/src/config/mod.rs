@@ -1155,8 +1155,8 @@ impl ConfigBuilder {
             ConfigLoadOptions {
                 loader_overrides,
                 strict_config,
+                cloud_config_bundle,
             },
-            cloud_config_bundle,
             thread_config_loader
                 .as_deref()
                 .unwrap_or(&codex_config::NoopThreadConfigLoader),
@@ -1546,7 +1546,6 @@ pub async fn load_config_as_toml_with_cli_and_load_options(
         cwd.cloned(),
         &cli_overrides,
         options,
-        CloudConfigBundleLoader::default(),
         &codex_config::NoopThreadConfigLoader,
     )
     .await?;
@@ -1757,7 +1756,6 @@ pub async fn load_global_mcp_servers(
         cwd,
         &cli_overrides,
         LoaderOverrides::default(),
-        CloudConfigBundleLoader::default(),
         &codex_config::NoopThreadConfigLoader,
     )
     .await?;
