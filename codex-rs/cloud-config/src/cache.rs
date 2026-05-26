@@ -352,11 +352,13 @@ mod tests {
         let cache = CloudConfigBundleCache::new(codex_home.path().to_path_buf());
 
         assert_eq!(
-            cache.load(None, Some("account-12345")).await,
+            cache
+                .load(/*chatgpt_user_id*/ None, Some("account-12345"))
+                .await,
             Err(CacheLoadStatus::AuthIdentityIncomplete)
         );
         assert_eq!(
-            cache.load(Some("user-12345"), None).await,
+            cache.load(Some("user-12345"), /*account_id*/ None).await,
             Err(CacheLoadStatus::AuthIdentityIncomplete)
         );
     }
