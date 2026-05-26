@@ -500,6 +500,9 @@
             "network_proxy": {
               "$ref": "#/definitions/FeatureToml_for_NetworkProxyConfigToml"
             },
+            "non_prefixed_mcp_tool_names": {
+              "type": "boolean"
+            },
             "personality": {
               "type": "boolean"
             },
@@ -570,6 +573,9 @@
               "type": "boolean"
             },
             "sqlite": {
+              "type": "boolean"
+            },
+            "standalone_web_search": {
               "type": "boolean"
             },
             "steer": {
@@ -711,14 +717,6 @@
             }
           ],
           "default": null
-        },
-        "zsh_path": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/AbsolutePathBuf"
-            }
-          ],
-          "description": "Optional absolute path to patched zsh used by zsh-exec-bridge-backed shell execution."
         }
       },
       "type": "object"
@@ -1287,6 +1285,10 @@
         "consolidation_model": {
           "description": "Model used for memory consolidation.",
           "type": "string"
+        },
+        "dedicated_tools": {
+          "description": "When `true`, expose dedicated memory tools through the extension tool surface.",
+          "type": "boolean"
         },
         "disable_on_external_context": {
           "description": "When `true`, external context sources mark the thread `memory_mode` as `\"polluted\"`.",
@@ -4431,6 +4433,9 @@
         "network_proxy": {
           "$ref": "#/definitions/FeatureToml_for_NetworkProxyConfigToml"
         },
+        "non_prefixed_mcp_tool_names": {
+          "type": "boolean"
+        },
         "personality": {
           "type": "boolean"
         },
@@ -4501,6 +4506,9 @@
           "type": "boolean"
         },
         "sqlite": {
+          "type": "boolean"
+        },
+        "standalone_web_search": {
           "type": "boolean"
         },
         "steer": {
@@ -4654,7 +4662,7 @@
           "$ref": "#/definitions/AbsolutePathBuf"
         }
       ],
-      "description": "Directory where Codex writes log files, for example `codex-tui.log`. Defaults to `$CODEX_HOME/log`."
+      "description": "Directory where Codex writes log files. Setting this value explicitly also enables the TUI text log in this directory. Defaults to `$CODEX_HOME/log`."
     },
     "marketplaces": {
       "additionalProperties": {
@@ -4986,14 +4994,6 @@
       ],
       "default": null,
       "description": "Windows-specific configuration."
-    },
-    "zsh_path": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/AbsolutePathBuf"
-        }
-      ],
-      "description": "Optional absolute path to patched zsh used by zsh-exec-bridge-backed shell execution."
     }
   },
   "title": "ConfigToml",
