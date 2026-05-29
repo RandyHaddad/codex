@@ -514,9 +514,9 @@ struct ExecServerCommand {
     use_agent_identity_auth: bool,
 }
 
-const EXEC_SERVER_DEFAULT_ANALYTICS_ENABLED: bool = true;
+const EXEC_SERVER_DEFAULT_ANALYTICS_ENABLED: bool = false;
 const EXEC_SERVER_DEFAULT_LOG_FILTER: &str = "error,opentelemetry_sdk=off,opentelemetry_otlp=off";
-const EXEC_SERVER_OTEL_SERVICE_NAME: &str = "codex_exec_server";
+const EXEC_SERVER_OTEL_SERVICE_NAME: &str = "codex-exec-server";
 
 #[derive(Debug, clap::Subcommand)]
 #[allow(clippy::enum_variant_names)]
@@ -1568,7 +1568,6 @@ fn init_exec_server_tracing(config: &codex_core::config::Config) -> impl Send + 
         }
     };
     codex_core::otel_init::record_process_start(otel.as_ref(), EXEC_SERVER_OTEL_SERVICE_NAME);
-    codex_core::otel_init::install_sqlite_telemetry(otel.as_ref(), EXEC_SERVER_OTEL_SERVICE_NAME);
 
     let otel_logger_layer = otel.as_ref().and_then(|otel| otel.logger_layer());
     let otel_tracing_layer = otel.as_ref().and_then(|otel| otel.tracing_layer());

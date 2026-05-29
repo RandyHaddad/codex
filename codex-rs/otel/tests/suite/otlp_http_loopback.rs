@@ -261,7 +261,7 @@ fn otlp_http_exporter_sends_logs_to_collector()
 
     let otel = OtelProvider::from(&OtelSettings {
         environment: "test".to_string(),
-        service_name: "codex_exec_server".to_string(),
+        service_name: "codex-exec-server".to_string(),
         service_version: env!("CARGO_PKG_VERSION").to_string(),
         codex_home: PathBuf::from("."),
         exporter: OtelExporter::OtlpHttp {
