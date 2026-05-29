@@ -105,7 +105,6 @@ use codex_app_server_protocol::ServerNotification;
 use codex_app_server_protocol::ServerRequest;
 use codex_app_server_protocol::ServerResponse;
 use codex_app_server_protocol::SessionSource as AppServerSessionSource;
-use codex_app_server_protocol::SubAgentSource as AppServerSubAgentSource;
 use codex_app_server_protocol::Thread;
 use codex_app_server_protocol::ThreadArchiveParams;
 use codex_app_server_protocol::ThreadArchiveResponse;
@@ -1749,7 +1748,7 @@ async fn compaction_event_ingests_custom_fact() {
                     "thread-1",
                     /*ephemeral*/ false,
                     "gpt-5",
-                    AppServerSessionSource::SubAgent(AppServerSubAgentSource::ThreadSpawn {
+                    AppServerSessionSource::SubAgent(SubAgentSource::ThreadSpawn {
                         parent_thread_id,
                         depth: 1,
                         agent_path: None,
@@ -2458,7 +2457,7 @@ fn subagent_thread_started_thread_spawn_serializes_parent_thread_id() {
         SubAgentThreadStartedInput {
             session_id: "session-root".to_string(),
             thread_id: "thread-spawn".to_string(),
-            parent_thread_id: None,
+            parent_thread_id: Some(parent_thread_id.to_string()),
             product_client_id: "codex-tui".to_string(),
             client_name: "codex-tui".to_string(),
             client_version: "1.0.0".to_string(),
@@ -2647,7 +2646,7 @@ async fn subagent_thread_started_inherits_parent_connection_for_new_thread() {
                 SubAgentThreadStartedInput {
                     session_id: "session-root".to_string(),
                     thread_id: "thread-review".to_string(),
-                    parent_thread_id: None,
+                    parent_thread_id: Some(parent_thread_id.to_string()),
                     product_client_id: "parent-client".to_string(),
                     client_name: "parent-client".to_string(),
                     client_version: "1.0.0".to_string(),

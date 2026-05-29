@@ -10,7 +10,6 @@ use codex_app_server_protocol::ReviewStartParams;
 use codex_app_server_protocol::ReviewStartResponse;
 use codex_app_server_protocol::ReviewTarget;
 use codex_app_server_protocol::SessionSource as ApiSessionSource;
-use codex_app_server_protocol::SubAgentSource as ApiSubAgentSource;
 use codex_app_server_protocol::ThreadForkParams;
 use codex_app_server_protocol::ThreadForkResponse;
 use codex_app_server_protocol::ThreadResumeParams;
@@ -352,7 +351,7 @@ async fn turn_start_sends_other_subagent_lineage_after_cold_thread_resume_v2() -
     assert_eq!(thread.parent_thread_id, Some(parent_thread_id_str.clone()));
     assert_eq!(
         thread.source,
-        ApiSessionSource::SubAgent(ApiSubAgentSource::Other("guardian".to_string()))
+        ApiSessionSource::SubAgent(SubAgentSource::Other("guardian".to_string()))
     );
 
     let turn_req = mcp

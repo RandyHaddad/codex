@@ -2452,7 +2452,7 @@ impl InitialHistory {
 
     pub fn get_resumed_parent_thread_id(&self) -> Option<ThreadId> {
         self.get_resumed_session_meta()
-            .and_then(SessionMeta::effective_parent_thread_id)
+            .and_then(|meta| meta.parent_thread_id)
     }
 
     fn get_resumed_session_meta(&self) -> Option<&SessionMeta> {
@@ -2646,17 +2646,9 @@ impl SessionSource {
                 .is_some_and(|product| product.matches_product_restriction(products))
     }
 
-    pub fn thread_spawn_parent_thread_id(&self) -> Option<ThreadId> {
+    pub fn parent_thread_id(&self) -> Option<ThreadId> {
         match self {
-            SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
-                parent_thread_id, ..
-            }) => Some(*parent_thread_id),
-            SessionSource::SubAgent(
-                SubAgentSource::Review
-                | SubAgentSource::Compact
-                | SubAgentSource::MemoryConsolidation
-                | SubAgentSource::Other(_),
-            ) => None,
+            SessionSource::SubAgent(subagent_source) => subagent_source.parent_thread_id(),
             SessionSource::Cli
             | SessionSource::VSCode
             | SessionSource::Exec
@@ -2681,7 +2673,7 @@ impl fmt::Display for SubAgentSource {
             } => {
                 write!(f, "thread_spawn_{parent_thread_id}_d{depth}")
             }
-            SubAgentSource::Other(label) => f.write_str(label),
+            SubAgentSource::Other(other) => f.write_str(other),
         }
     }
 }
@@ -2693,7 +2685,19 @@ impl SubAgentSource {
             SubAgentSource::Compact => "compact",
             SubAgentSource::ThreadSpawn { .. } => "thread_spawn",
             SubAgentSource::MemoryConsolidation => "memory_consolidation",
-            SubAgentSource::Other(label) => label,
+            SubAgentSource::Other(other) => other,
+        }
+    }
+
+    pub fn parent_thread_id(&self) -> Option<ThreadId> {
+        match self {
+            SubAgentSource::ThreadSpawn {
+                parent_thread_id, ..
+            } => Some(*parent_thread_id),
+            SubAgentSource::Review
+            | SubAgentSource::Compact
+            | SubAgentSource::MemoryConsolidation
+            | SubAgentSource::Other(_) => None,
         }
     }
 }
@@ -2716,7 +2720,7 @@ pub struct SessionMeta {
     pub id: ThreadId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forked_from_id: Option<ThreadId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_thread_id: Option<ThreadId>,
     pub timestamp: String,
     pub cwd: PathBuf,
@@ -2767,13 +2771,6 @@ impl Default for SessionMeta {
             dynamic_tools: None,
             memory_mode: None,
         }
-    }
-}
-
-impl SessionMeta {
-    pub fn effective_parent_thread_id(&self) -> Option<ThreadId> {
-        self.parent_thread_id
-            .or_else(|| self.source.thread_spawn_parent_thread_id())
     }
 }
 
@@ -3431,7 +3428,7 @@ pub struct SessionConfiguredEvent {
     pub thread_id: ThreadId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forked_from_id: Option<ThreadId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_thread_id: Option<ThreadId>,
     /// Optional analytics source classification for this thread.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3502,7 +3499,6 @@ impl<'de> Deserialize<'de> for SessionConfiguredEvent {
             #[serde(default)]
             thread_id: Option<ThreadId>,
             forked_from_id: Option<ThreadId>,
-            #[serde(default)]
             parent_thread_id: Option<ThreadId>,
             #[serde(default)]
             thread_source: Option<ThreadSource>,
@@ -4031,125 +4027,6 @@ mod tests {
             SessionSource::from_startup_arg(" Atlas ").unwrap(),
             SessionSource::Custom("atlas".to_string())
         );
-    }
-
-    #[test]
-    fn subagent_source_preserves_legacy_non_thread_spawn_shape() -> Result<()> {
-        assert_eq!(
-            serde_json::from_value::<SubAgentSource>(json!("review"))?,
-            SubAgentSource::Review
-        );
-        assert_eq!(
-            serde_json::from_value::<SubAgentSource>(json!("compact"))?,
-            SubAgentSource::Compact
-        );
-        assert_eq!(
-            serde_json::from_value::<SubAgentSource>(json!("memory_consolidation"))?,
-            SubAgentSource::MemoryConsolidation
-        );
-        assert_eq!(
-            serde_json::from_value::<SubAgentSource>(json!({ "other": "guardian" }))?,
-            SubAgentSource::Other("guardian".to_string())
-        );
-        assert_eq!(
-            serde_json::to_value(SubAgentSource::Review)?,
-            json!("review")
-        );
-        assert_eq!(
-            serde_json::to_value(SubAgentSource::Other("guardian".to_string()))?,
-            json!({ "other": "guardian" })
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn session_meta_deserializes_legacy_parentless_subagent_sources() -> Result<()> {
-        for source in [
-            SessionSource::SubAgent(SubAgentSource::Review),
-            SessionSource::SubAgent(SubAgentSource::Other("guardian".to_string())),
-        ] {
-            let session_meta = SessionMeta {
-                source,
-                ..Default::default()
-            };
-            let value = serde_json::to_value(&session_meta)?;
-
-            assert!(value.get("parent_thread_id").is_none());
-            assert_eq!(
-                serde_json::from_value::<SessionMeta>(value)?.effective_parent_thread_id(),
-                None
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn session_meta_round_trips_parent_thread_id() -> Result<()> {
-        let parent_thread_id = ThreadId::from_string("11111111-1111-4111-8111-111111111111")?;
-        for source in [
-            SessionSource::SubAgent(SubAgentSource::Review),
-            SessionSource::SubAgent(SubAgentSource::Other("guardian".to_string())),
-        ] {
-            let session_meta = SessionMeta {
-                parent_thread_id: Some(parent_thread_id),
-                source,
-                ..Default::default()
-            };
-
-            assert_eq!(
-                serde_json::from_value::<SessionMeta>(serde_json::to_value(&session_meta)?)?
-                    .effective_parent_thread_id(),
-                Some(parent_thread_id)
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn session_meta_restores_legacy_thread_spawn_parent_from_source() -> Result<()> {
-        let parent_thread_id = ThreadId::from_string("11111111-1111-4111-8111-111111111111")?;
-        let session_meta = SessionMeta {
-            source: SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
-                parent_thread_id,
-                depth: 1,
-                agent_path: None,
-                agent_nickname: None,
-                agent_role: None,
-            }),
-            ..Default::default()
-        };
-
-        assert_eq!(
-            session_meta.effective_parent_thread_id(),
-            Some(parent_thread_id)
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn subagent_source_thread_spawn_serialization_is_unchanged() -> Result<()> {
-        let parent_thread_id = ThreadId::from_string("22222222-2222-4222-8222-222222222222")?;
-        let source = SubAgentSource::ThreadSpawn {
-            parent_thread_id,
-            depth: 1,
-            agent_path: None,
-            agent_nickname: None,
-            agent_role: None,
-        };
-
-        assert_eq!(
-            serde_json::to_value(source)?,
-            json!({
-                "thread_spawn": {
-                    "parent_thread_id": "22222222-2222-4222-8222-222222222222",
-                    "depth": 1,
-                    "agent_path": null,
-                    "agent_nickname": null,
-                    "agent_role": null,
-                }
-            })
-        );
-        Ok(())
     }
 
     #[test]

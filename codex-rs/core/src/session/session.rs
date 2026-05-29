@@ -516,8 +516,7 @@ impl Session {
         session_configuration.forked_from_thread_id = forked_from_id;
         let parent_thread_id = session_configuration
             .parent_thread_id
-            .or_else(|| initial_history.get_resumed_parent_thread_id())
-            .or_else(|| session_source.thread_spawn_parent_thread_id());
+            .or_else(|| initial_history.get_resumed_parent_thread_id());
         session_configuration.parent_thread_id = parent_thread_id;
 
         let event_persistence_mode = if session_configuration.persist_extended_history {

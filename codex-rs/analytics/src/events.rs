@@ -1047,9 +1047,7 @@ pub(crate) fn subagent_thread_started_event_request(
         thread_source: Some(ThreadSource::Subagent),
         initialization_mode: ThreadInitializationMode::New,
         subagent_source: Some(subagent_source_name(&input.subagent_source)),
-        parent_thread_id: input
-            .parent_thread_id
-            .or_else(|| subagent_parent_thread_id(&input.subagent_source)),
+        parent_thread_id: input.parent_thread_id,
         created_at: input.created_at,
     };
     ThreadInitializedEvent {
@@ -1060,18 +1058,6 @@ pub(crate) fn subagent_thread_started_event_request(
 
 pub(crate) fn subagent_source_name(subagent_source: &SubAgentSource) -> String {
     subagent_source.kind().to_string()
-}
-
-pub(crate) fn subagent_parent_thread_id(subagent_source: &SubAgentSource) -> Option<String> {
-    match subagent_source {
-        SubAgentSource::ThreadSpawn {
-            parent_thread_id, ..
-        } => Some(parent_thread_id.to_string()),
-        SubAgentSource::Review
-        | SubAgentSource::Compact
-        | SubAgentSource::MemoryConsolidation
-        | SubAgentSource::Other(_) => None,
-    }
 }
 
 fn analytics_hook_status(status: HookRunStatus) -> HookRunStatus {

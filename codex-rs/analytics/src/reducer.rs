@@ -55,7 +55,6 @@ use crate::events::codex_hook_run_metadata;
 use crate::events::codex_plugin_metadata;
 use crate::events::codex_plugin_used_metadata;
 use crate::events::plugin_state_event_type;
-use crate::events::subagent_parent_thread_id;
 use crate::events::subagent_source_name;
 use crate::events::subagent_thread_started_event_request;
 use crate::facts::AnalyticsFact;
@@ -270,25 +269,22 @@ impl ThreadMetadataState {
         parent_thread_id: Option<String>,
         initialization_mode: ThreadInitializationMode,
     ) -> Self {
-        let (subagent_source, source_parent_thread_id) = match session_source {
-            SessionSource::SubAgent(subagent_source) => (
-                Some(subagent_source_name(subagent_source)),
-                subagent_parent_thread_id(subagent_source),
-            ),
+        let subagent_source = match session_source {
+            SessionSource::SubAgent(subagent_source) => Some(subagent_source_name(subagent_source)),
             SessionSource::Cli
             | SessionSource::VSCode
             | SessionSource::Exec
             | SessionSource::Mcp
             | SessionSource::Custom(_)
             | SessionSource::Internal(_)
-            | SessionSource::Unknown => (None, None),
+            | SessionSource::Unknown => None,
         };
         Self {
             session_id,
             thread_source,
             initialization_mode,
             subagent_source,
-            parent_thread_id: parent_thread_id.or(source_parent_thread_id),
+            parent_thread_id,
         }
     }
 }
@@ -517,10 +513,7 @@ impl AnalyticsReducer {
         input: SubAgentThreadStartedInput,
         out: &mut Vec<TrackEventRequest>,
     ) {
-        let parent_thread_id = input
-            .parent_thread_id
-            .clone()
-            .or_else(|| subagent_parent_thread_id(&input.subagent_source));
+        let parent_thread_id = input.parent_thread_id.clone();
         let parent_connection_id = parent_thread_id
             .as_ref()
             .and_then(|parent_thread_id| self.threads.get(parent_thread_id))

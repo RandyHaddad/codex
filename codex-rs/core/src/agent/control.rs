@@ -848,10 +848,7 @@ impl AgentControl {
         current_thread_id: ThreadId,
         current_session_source: &SessionSource,
     ) {
-        if current_session_source
-            .thread_spawn_parent_thread_id()
-            .is_none()
-        {
+        if current_session_source.parent_thread_id().is_none() {
             self.state.register_root_thread(current_thread_id);
         }
     }
@@ -1226,8 +1223,7 @@ impl AgentControl {
         child_thread_id: ThreadId,
         session_source: Option<&SessionSource>,
     ) {
-        let Some(parent_thread_id) =
-            session_source.and_then(SessionSource::thread_spawn_parent_thread_id)
+        let Some(parent_thread_id) = session_source.and_then(SessionSource::parent_thread_id)
         else {
             return;
         };
