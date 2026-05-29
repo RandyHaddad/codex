@@ -63,7 +63,7 @@ pub struct CloudRequirementsFragment {
 pub struct CloudConfigBundleLayers {
     /// Enterprise-managed config layers in `ConfigLayerStack` order.
     pub enterprise_managed_config: Vec<ConfigLayerEntry>,
-    /// Enterprise-managed requirements layers in requirements composition order.
+    /// Enterprise-managed requirements layers in requirements layer merge order.
     pub enterprise_managed_requirements: Vec<RequirementsLayerEntry>,
 }
 
