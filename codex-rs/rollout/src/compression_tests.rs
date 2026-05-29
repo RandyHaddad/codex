@@ -14,6 +14,7 @@ use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 use uuid::Uuid;
 
+use super::materialize::persist_temp_file_noclobber;
 use super::*;
 use crate::RolloutRecorder;
 use crate::append_rollout_item_to_path;
