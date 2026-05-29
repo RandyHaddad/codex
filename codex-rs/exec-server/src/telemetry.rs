@@ -163,20 +163,20 @@ impl ExecServerTelemetryInner {
     }
 
     fn counter(&self, name: &str, tags: &[(&str, &str)]) {
-        if let Err(err) = self.metrics.counter(name, /*inc*/ 1, tags) {
-            warn!(metric = name, error = %err, "failed to emit exec-server counter");
+        if self.metrics.counter(name, /*inc*/ 1, tags).is_err() {
+            warn!(metric = name, "failed to emit exec-server counter");
         }
     }
 
     fn duration(&self, name: &str, duration: Duration, tags: &[(&str, &str)]) {
-        if let Err(err) = self.metrics.record_duration(name, duration, tags) {
-            warn!(metric = name, error = %err, "failed to emit exec-server duration");
+        if self.metrics.record_duration(name, duration, tags).is_err() {
+            warn!(metric = name, "failed to emit exec-server duration");
         }
     }
 
     fn gauge(&self, name: &str, value: i64, tags: &[(&str, &str)]) {
-        if let Err(err) = self.metrics.gauge(name, value, tags) {
-            warn!(metric = name, error = %err, "failed to emit exec-server gauge");
+        if self.metrics.gauge(name, value, tags).is_err() {
+            warn!(metric = name, "failed to emit exec-server gauge");
         }
     }
 }

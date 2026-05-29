@@ -1516,7 +1516,6 @@ async fn run_exec_server_command(
             .environment_id
             .ok_or_else(|| anyhow::anyhow!("--environment-id is required when --remote is set"))?;
         exec_server_span.record("mode", "remote");
-        exec_server_span.record("environment.id", environment_id.as_str());
         let auth_provider =
             load_exec_server_remote_auth_provider(&config, &base_url, cmd.use_agent_identity_auth)
                 .await?;
@@ -1591,7 +1590,6 @@ fn exec_server_root_span() -> tracing::Span {
         "codex.exec_server",
         otel.kind = "internal",
         mode = tracing::field::Empty,
-        environment.id = tracing::field::Empty,
     )
 }
 

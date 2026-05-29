@@ -301,7 +301,6 @@ fn otlp_http_exporter_sends_logs_to_collector()
             target: "codex_otel.log_only",
             tracing::Level::INFO,
             event.name = "codex.exec_server.remote_environment_registered",
-            environment_id = "env-local-otel",
             "codex exec-server remote environment registered"
         );
     });
@@ -336,12 +335,6 @@ fn otlp_http_exporter_sends_logs_to_collector()
         "expected exec-server event not found; body prefix: {}",
         &body.chars().take(2000).collect::<String>()
     );
-    assert!(
-        body.contains("env-local-otel"),
-        "expected environment id not found; body prefix: {}",
-        &body.chars().take(2000).collect::<String>()
-    );
-
     Ok(())
 }
 
@@ -466,7 +459,6 @@ fn otlp_http_exporter_sends_traces_to_collector()
             target: "codex_otel.trace_safe",
             tracing::Level::INFO,
             event.name = "codex.exec_server.remote_environment_registered",
-            environment_id = "env-local-otel",
             "codex exec-server remote environment registered"
         );
         tracing::info!("trace loopback event");
@@ -526,12 +518,6 @@ fn otlp_http_exporter_sends_traces_to_collector()
         "expected exec-server trace event not found; body prefix: {}",
         &body.chars().take(2000).collect::<String>()
     );
-    assert!(
-        body.contains("env-local-otel"),
-        "expected environment id not found; body prefix: {}",
-        &body.chars().take(2000).collect::<String>()
-    );
-
     Ok(())
 }
 
