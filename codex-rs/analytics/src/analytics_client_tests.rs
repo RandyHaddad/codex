@@ -105,6 +105,7 @@ use codex_app_server_protocol::ServerNotification;
 use codex_app_server_protocol::ServerRequest;
 use codex_app_server_protocol::ServerResponse;
 use codex_app_server_protocol::SessionSource as AppServerSessionSource;
+use codex_app_server_protocol::SubAgentSource as AppServerSubAgentSource;
 use codex_app_server_protocol::Thread;
 use codex_app_server_protocol::ThreadArchiveParams;
 use codex_app_server_protocol::ThreadArchiveResponse;
@@ -165,6 +166,7 @@ fn sample_thread_with_metadata(
         id: thread_id.to_string(),
         session_id: format!("session-{thread_id}"),
         forked_from_id: None,
+        parent_thread_id: None,
         preview: "first prompt".to_string(),
         ephemeral,
         model_provider: "openai".to_string(),
@@ -1747,7 +1749,7 @@ async fn compaction_event_ingests_custom_fact() {
                     "thread-1",
                     /*ephemeral*/ false,
                     "gpt-5",
-                    AppServerSessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+                    AppServerSessionSource::SubAgent(AppServerSubAgentSource::ThreadSpawn {
                         parent_thread_id,
                         depth: 1,
                         agent_path: None,
@@ -2534,11 +2536,14 @@ fn subagent_thread_started_other_serializes_expected_shape() {
 
 #[test]
 fn subagent_thread_started_other_serializes_explicit_parent_thread_id() {
+    let parent_thread_id =
+        codex_protocol::ThreadId::from_string("33333333-3333-4333-8333-333333333333")
+            .expect("valid thread id");
     let event = TrackEventRequest::ThreadInitialized(subagent_thread_started_event_request(
         SubAgentThreadStartedInput {
             session_id: "session-root".to_string(),
             thread_id: "thread-guardian".to_string(),
-            parent_thread_id: Some("parent-thread-guardian".to_string()),
+            parent_thread_id: Some(parent_thread_id.to_string()),
             product_client_id: "codex-tui".to_string(),
             client_name: "codex-tui".to_string(),
             client_version: "1.0.0".to_string(),
@@ -2553,7 +2558,7 @@ fn subagent_thread_started_other_serializes_explicit_parent_thread_id() {
     assert_eq!(payload["event_params"]["subagent_source"], "guardian");
     assert_eq!(
         payload["event_params"]["parent_thread_id"],
-        "parent-thread-guardian"
+        "33333333-3333-4333-8333-333333333333"
     );
 }
 

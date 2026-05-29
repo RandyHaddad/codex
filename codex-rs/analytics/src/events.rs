@@ -1059,19 +1059,19 @@ pub(crate) fn subagent_thread_started_event_request(
 }
 
 pub(crate) fn subagent_source_name(subagent_source: &SubAgentSource) -> String {
-    match subagent_source {
-        SubAgentSource::Review => "review".to_string(),
-        SubAgentSource::Compact => "compact".to_string(),
-        SubAgentSource::ThreadSpawn { .. } => "thread_spawn".to_string(),
-        SubAgentSource::MemoryConsolidation => "memory_consolidation".to_string(),
-        SubAgentSource::Other(other) => other.clone(),
-    }
+    subagent_source.kind().to_string()
 }
 
 pub(crate) fn subagent_parent_thread_id(subagent_source: &SubAgentSource) -> Option<String> {
-    subagent_source
-        .parent_thread_id()
-        .map(|parent_thread_id| parent_thread_id.to_string())
+    match subagent_source {
+        SubAgentSource::ThreadSpawn {
+            parent_thread_id, ..
+        } => Some(parent_thread_id.to_string()),
+        SubAgentSource::Review
+        | SubAgentSource::Compact
+        | SubAgentSource::MemoryConsolidation
+        | SubAgentSource::Other(_) => None,
+    }
 }
 
 fn analytics_hook_status(status: HookRunStatus) -> HookRunStatus {

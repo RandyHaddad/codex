@@ -3,7 +3,6 @@ use super::ThreadItem;
 use super::ThreadStatus;
 use super::TurnStatus;
 use codex_protocol::protocol::SessionSource as CoreSessionSource;
-use codex_protocol::protocol::SubAgentSource as CoreSubAgentSource;
 use codex_protocol::protocol::ThreadSource as CoreThreadSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use schemars::JsonSchema;
@@ -12,6 +11,9 @@ use serde::Serialize;
 use std::path::PathBuf;
 use thiserror::Error;
 use ts_rs::TS;
+
+use crate::protocol::session_source::SessionSource as LegacySessionSource;
+use crate::protocol::session_source::SubAgentSource;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +28,7 @@ pub enum SessionSource {
     Exec,
     AppServer,
     Custom(String),
-    SubAgent(CoreSubAgentSource),
+    SubAgent(SubAgentSource),
     #[serde(other)]
     Unknown,
 }
@@ -41,9 +43,15 @@ impl From<CoreSessionSource> for SessionSource {
             CoreSessionSource::Custom(source) => SessionSource::Custom(source),
             // We do not want to render those at the app-server level.
             CoreSessionSource::Internal(_) => SessionSource::Unknown,
-            CoreSessionSource::SubAgent(sub) => SessionSource::SubAgent(sub),
+            CoreSessionSource::SubAgent(sub) => SessionSource::SubAgent(sub.into()),
             CoreSessionSource::Unknown => SessionSource::Unknown,
         }
+    }
+}
+
+impl From<LegacySessionSource> for SessionSource {
+    fn from(value: LegacySessionSource) -> Self {
+        CoreSessionSource::from(value).into()
     }
 }
 
@@ -55,7 +63,7 @@ impl From<SessionSource> for CoreSessionSource {
             SessionSource::Exec => CoreSessionSource::Exec,
             SessionSource::AppServer => CoreSessionSource::Mcp,
             SessionSource::Custom(source) => CoreSessionSource::Custom(source),
-            SessionSource::SubAgent(sub) => CoreSessionSource::SubAgent(sub),
+            SessionSource::SubAgent(sub) => CoreSessionSource::SubAgent(sub.into()),
             SessionSource::Unknown => CoreSessionSource::Unknown,
         }
     }
@@ -108,6 +116,9 @@ pub struct Thread {
     pub session_id: String,
     /// Source thread id when this thread was created by forking another thread.
     pub forked_from_id: Option<String>,
+    /// Immediate control/spawn parent thread id when this thread is a subagent child.
+    #[serde(default)]
+    pub parent_thread_id: Option<String>,
     /// Usually the first user message in the thread, if available.
     pub preview: String,
     /// Whether the thread is ephemeral and should not be materialized on disk.
