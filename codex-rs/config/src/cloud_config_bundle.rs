@@ -1,7 +1,7 @@
 use crate::CloudConfigFragment;
 use crate::ConfigLayerEntry;
 use crate::RequirementSource;
-use crate::RequirementsLayer;
+use crate::RequirementsLayerEntry;
 use crate::cloud_config_layers::CloudConfigLayerError;
 use crate::cloud_config_layers::cloud_config_layers_from_fragments_strict;
 use crate::cloud_config_layers_from_fragments;
@@ -64,7 +64,7 @@ pub struct CloudConfigBundleLayers {
     /// Enterprise-managed config layers in `ConfigLayerStack` order.
     pub enterprise_managed_config: Vec<ConfigLayerEntry>,
     /// Enterprise-managed requirements layers in requirements composition order.
-    pub enterprise_managed_requirements: Vec<RequirementsLayer>,
+    pub enterprise_managed_requirements: Vec<RequirementsLayerEntry>,
 }
 
 impl CloudConfigBundleLayers {
@@ -109,7 +109,7 @@ impl CloudConfigBundleLayers {
         let mut enterprise_managed_requirements = requirements_enterprise_managed
             .into_iter()
             .map(|fragment| {
-                RequirementsLayer::from_toml(
+                RequirementsLayerEntry::from_toml(
                     RequirementSource::EnterpriseManaged {
                         id: fragment.id,
                         name: fragment.name,
