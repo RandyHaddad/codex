@@ -18,7 +18,7 @@ sessionId: string,
  */
 forkedFromId: string | null,
 /**
- * Immediate control/spawn parent thread id when this thread is a subagent child.
+ * The ID of the parent thread. This will only be set if this Thread is a subagent.
  */
 parentThreadId: string | null,
 /**

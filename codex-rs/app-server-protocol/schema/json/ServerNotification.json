@@ -3366,7 +3366,7 @@
           ]
         },
         "parentThreadId": {
-          "description": "Immediate control/spawn parent thread id when this thread is a subagent child.",
+          "description": "The ID of the parent thread. This will only be set if this Thread is a subagent.",
           "type": [
             "string",
             "null"
