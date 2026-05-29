@@ -8,7 +8,7 @@ use self::layer_io::LoadedConfigLayers;
 use crate::CONFIG_TOML_FILE;
 use crate::CloudConfigBundleLayers;
 use crate::ProfileV2Name;
-use crate::RequirementsLayer;
+use crate::RequirementsLayerEntry;
 use crate::compose_requirements;
 use crate::config_requirements::RequirementSource;
 use crate::config_requirements::SandboxModeRequirement;
@@ -566,7 +566,7 @@ fn validate_cli_overrides_strictly(
 pub async fn load_requirements_toml(
     fs: &dyn ExecutorFileSystem,
     requirements_toml_file: &AbsolutePathBuf,
-) -> io::Result<Option<RequirementsLayer>> {
+) -> io::Result<Option<RequirementsLayerEntry>> {
     match fs
         .read_file_text(requirements_toml_file, /*sandbox*/ None)
         .await
@@ -583,7 +583,7 @@ pub async fn load_requirements_toml(
             })?;
             let base_dir = AbsolutePathBuf::from_absolute_path(requirements_parent)?;
             Ok(Some(
-                RequirementsLayer::from_toml(
+                RequirementsLayerEntry::from_toml(
                     RequirementSource::SystemRequirementsToml {
                         file: requirements_toml_file.clone(),
                     },
@@ -721,7 +721,7 @@ fn windows_program_data_dir_from_known_folder() -> io::Result<PathBuf> {
 
 fn requirements_layers_from_legacy_scheme(
     loaded_config_layers: LoadedConfigLayers,
-) -> io::Result<Vec<RequirementsLayer>> {
+) -> io::Result<Vec<RequirementsLayerEntry>> {
     // List the file-backed legacy layer first because requirements layers are
     // composed lowest-precedence to highest-precedence, and MDM has higher
     // precedence than the legacy managed_config.toml file.
@@ -754,7 +754,7 @@ fn requirements_layers_from_legacy_scheme(
                 )
             })?;
 
-        layers.push(RequirementsLayer::from_toml_value(
+        layers.push(RequirementsLayerEntry::from_toml_value(
             source,
             legacy_requirements_to_toml_value(legacy_config)?,
         ));

@@ -1,4 +1,4 @@
-use crate::RequirementsLayer;
+use crate::RequirementsLayerEntry;
 use crate::config_requirements::RequirementSource;
 use crate::config_toml::ConfigToml;
 use crate::diagnostics::ConfigDiagnosticSource;
@@ -75,7 +75,7 @@ fn load_managed_admin_config(
 
 pub(crate) async fn load_managed_admin_requirements_layer(
     override_base64: Option<&str>,
-) -> io::Result<Option<RequirementsLayer>> {
+) -> io::Result<Option<RequirementsLayerEntry>> {
     if let Some(encoded) = override_base64 {
         let trimmed = encoded.trim();
         if trimmed.is_empty() {
@@ -83,7 +83,7 @@ pub(crate) async fn load_managed_admin_requirements_layer(
         }
 
         return parse_managed_requirements_base64(trimmed).map(|contents| {
-            Some(RequirementsLayer::from_toml(
+            Some(RequirementsLayerEntry::from_toml(
                 managed_preferences_requirements_source(),
                 contents,
             ))
@@ -92,7 +92,7 @@ pub(crate) async fn load_managed_admin_requirements_layer(
 
     match task::spawn_blocking(load_managed_admin_requirements).await {
         Ok(result) => Ok(result?.map(|contents| {
-            RequirementsLayer::from_toml(managed_preferences_requirements_source(), contents)
+            RequirementsLayerEntry::from_toml(managed_preferences_requirements_source(), contents)
         })),
         Err(join_err) => {
             if join_err.is_cancelled() {

@@ -16,7 +16,7 @@ use codex_config::ConfigRequirementsWithSources;
 use codex_config::FilesystemDenyReadPattern;
 use codex_config::LoaderOverrides;
 use codex_config::RequirementSource;
-use codex_config::RequirementsLayer;
+use codex_config::RequirementsLayerEntry;
 use codex_config::SessionThreadConfig;
 use codex_config::StaticThreadConfigLoader;
 use codex_config::ThreadConfigSource;
@@ -1146,7 +1146,7 @@ allowed_approval_policies = ["on-request"]
     .expect("system requirements should load");
     let config_requirements_toml = compose_requirements(vec![
         system_layer,
-        RequirementsLayer::from_toml(
+        RequirementsLayerEntry::from_toml(
             cloud_config_bundle_requirement_source(),
             r#"allowed_approval_policies = ["never"]"#,
         ),
@@ -1194,7 +1194,7 @@ allowed_sandbox_modes = ["read-only", "workspace-write"]
     .expect("system requirements should load");
     let config_requirements_toml = compose_requirements(vec![
         system_layer,
-        RequirementsLayer::from_toml(
+        RequirementsLayerEntry::from_toml(
             cloud_source.clone(),
             r#"allowed_sandbox_modes = ["read-only"]"#,
         ),
