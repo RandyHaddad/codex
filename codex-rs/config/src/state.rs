@@ -560,14 +560,13 @@ fn verify_layer_ordering(layers: &[ConfigLayerEntry]) -> std::io::Result<Option<
                 }
                 previous_project_dot_codex_folder = Some(current_project_dot_codex_folder);
             }
-            ConfigLayerSource::ProjectOverride { dot_codex_folder } => {
-                if previous_project_dot_codex_folder != Some(dot_codex_folder) {
+            ConfigLayerSource::ProjectOverride { dot_codex_folder }
+                if previous_project_dot_codex_folder != Some(dot_codex_folder) => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
                         "project override layer must follow its project layer",
                     ));
                 }
-            }
             _ => {}
         }
     }
