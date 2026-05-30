@@ -73,6 +73,8 @@ impl RuntimeWorkspaceState {
         self.snapshot.read().await.clone()
     }
 
+    // Used by the model workspace-mutation tools introduced in a follow-up layer.
+    #[allow(dead_code)]
     pub(crate) async fn replace(&self, snapshot: RuntimeWorkspaceSnapshot) {
         *self.snapshot.write().await = snapshot;
     }
@@ -413,6 +415,8 @@ impl TurnContext {
         }
     }
 
+    // Used by the model workspace-mutation tools introduced in a follow-up layer.
+    #[allow(dead_code)]
     pub(crate) fn to_turn_context_item_with_runtime_workspace(
         &self,
         runtime_workspace: &RuntimeWorkspaceSnapshot,

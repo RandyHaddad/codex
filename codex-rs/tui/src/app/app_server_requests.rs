@@ -496,6 +496,7 @@ mod tests {
                         "network": { "enabled": null }
                     }))
                     .expect("valid permissions"),
+                    workspace_mutation: None,
                 },
             }),
             None
