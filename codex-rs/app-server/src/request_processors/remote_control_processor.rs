@@ -5,7 +5,10 @@ use crate::transport::RemoteControlUnavailable;
 use codex_app_server_protocol::JSONRPCErrorError;
 use codex_app_server_protocol::RemoteControlDisableResponse;
 use codex_app_server_protocol::RemoteControlEnableResponse;
+use codex_app_server_protocol::RemoteControlPairingStartParams;
+use codex_app_server_protocol::RemoteControlPairingStartResponse;
 use codex_app_server_protocol::RemoteControlStatusReadResponse;
+use std::io;
 
 #[derive(Clone)]
 pub(crate) struct RemoteControlRequestProcessor {
@@ -32,6 +35,11 @@ impl RemoteControlRequestProcessor {
         Ok(RemoteControlDisableResponse::from(handle.disable()))
     }
 
+    pub(crate) fn cancel_pending_pairing_requests(&self) -> Result<(), JSONRPCErrorError> {
+        self.handle()?.cancel_pending_pairing_requests();
+        Ok(())
+    }
+
     pub(crate) fn status_read(&self) -> Result<RemoteControlStatusReadResponse, JSONRPCErrorError> {
         let status = self.handle()?.status();
         Ok(RemoteControlStatusReadResponse {
@@ -40,6 +48,16 @@ impl RemoteControlRequestProcessor {
             installation_id: status.installation_id,
             environment_id: status.environment_id,
         })
+    }
+
+    pub(crate) async fn pairing_start(
+        &self,
+        params: RemoteControlPairingStartParams,
+    ) -> Result<RemoteControlPairingStartResponse, JSONRPCErrorError> {
+        self.handle()?
+            .start_pairing(params)
+            .await
+            .map_err(map_pairing_start_error)
     }
 
     fn handle(&self) -> Result<&RemoteControlHandle, JSONRPCErrorError> {
@@ -51,4 +69,12 @@ impl RemoteControlRequestProcessor {
 
 fn map_unavailable(err: RemoteControlUnavailable) -> JSONRPCErrorError {
     invalid_request(err.to_string())
+}
+
+pub(super) fn map_pairing_start_error(err: io::Error) -> JSONRPCErrorError {
+    if err.kind() == io::ErrorKind::InvalidInput {
+        invalid_request(err.to_string())
+    } else {
+        internal_error(err.to_string())
+    }
 }
