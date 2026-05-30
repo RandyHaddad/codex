@@ -1030,6 +1030,7 @@ impl Session {
                     thread_id,
                     installation_id.clone(),
                     session_configuration.provider.clone(),
+                    config.codex_home.to_path_buf(),
                     session_configuration.session_source.clone(),
                     config.model_verbosity,
                     config.features.enabled(Feature::EnableRequestCompression),

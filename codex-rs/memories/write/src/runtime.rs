@@ -178,6 +178,7 @@ impl MemoryStartupContext {
             self.thread_id,
             installation_id,
             config.model_provider.clone(),
+            config.codex_home.to_path_buf(),
             session_source,
             config.model_verbosity,
             config.features.enabled(Feature::EnableRequestCompression),

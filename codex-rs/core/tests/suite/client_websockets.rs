@@ -2154,6 +2154,7 @@ async fn websocket_harness_with_provider_options(
         thread_id,
         /*installation_id*/ TEST_INSTALLATION_ID.to_string(),
         provider.clone(),
+        config.codex_home.to_path_buf(),
         SessionSource::Exec,
         config.model_verbosity,
         /*enable_request_compression*/ false,
