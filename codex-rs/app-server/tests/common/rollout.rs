@@ -132,6 +132,7 @@ pub fn create_fake_rollout_with_source(
 }
 
 /// Create a minimal rollout file with an explicit session source and control parent.
+#[allow(clippy::too_many_arguments)]
 pub fn create_fake_parented_rollout_with_source(
     codex_home: &Path,
     filename_ts: &str,
