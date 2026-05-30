@@ -17,6 +17,7 @@ use crate::RemoveOptions;
 use crate::fs_helper::FsHelperPayload;
 use crate::fs_helper::FsHelperRequest;
 use crate::fs_sandbox::FileSystemSandboxRunner;
+use crate::protocol::FsCanonicalizeParams;
 use crate::protocol::FsCopyParams;
 use crate::protocol::FsCreateDirectoryParams;
 use crate::protocol::FsGetMetadataParams;
@@ -51,6 +52,25 @@ impl SandboxedFileSystem {
 
 #[async_trait]
 impl ExecutorFileSystem for SandboxedFileSystem {
+    async fn canonicalize(
+        &self,
+        path: &AbsolutePathBuf,
+        sandbox: Option<&FileSystemSandboxContext>,
+    ) -> FileSystemResult<AbsolutePathBuf> {
+        let sandbox = require_platform_sandbox(sandbox)?;
+        self.run_sandboxed(
+            sandbox,
+            FsHelperRequest::Canonicalize(FsCanonicalizeParams {
+                path: path.clone(),
+                sandbox: None,
+            }),
+        )
+        .await?
+        .expect_canonicalize()
+        .map(|response| response.path)
+        .map_err(map_sandbox_error)
+    }
+
     async fn read_file(
         &self,
         path: &AbsolutePathBuf,

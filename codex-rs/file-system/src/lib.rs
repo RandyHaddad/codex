@@ -133,6 +133,12 @@ pub type FileSystemResult<T> = io::Result<T>;
 /// a remote environment.
 #[async_trait]
 pub trait ExecutorFileSystem: Send + Sync {
+    async fn canonicalize(
+        &self,
+        path: &AbsolutePathBuf,
+        sandbox: Option<&FileSystemSandboxContext>,
+    ) -> FileSystemResult<AbsolutePathBuf>;
+
     async fn read_file(
         &self,
         path: &AbsolutePathBuf,

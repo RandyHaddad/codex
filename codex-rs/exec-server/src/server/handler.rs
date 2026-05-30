@@ -16,6 +16,8 @@ use crate::client::http_client::PendingReqwestHttpBodyStream;
 use crate::client::http_client::ReqwestHttpRequestRunner;
 use crate::protocol::ExecParams;
 use crate::protocol::ExecResponse;
+use crate::protocol::FsCanonicalizeParams;
+use crate::protocol::FsCanonicalizeResponse;
 use crate::protocol::FsCopyParams;
 use crate::protocol::FsCopyResponse;
 use crate::protocol::FsCreateDirectoryParams;
@@ -214,6 +216,14 @@ impl ExecServerHandler {
     ) -> Result<FsReadFileResponse, JSONRPCErrorError> {
         self.require_initialized_for("filesystem")?;
         self.file_system.read_file(params).await
+    }
+
+    pub(crate) async fn fs_canonicalize(
+        &self,
+        params: FsCanonicalizeParams,
+    ) -> Result<FsCanonicalizeResponse, JSONRPCErrorError> {
+        self.require_initialized_for("filesystem")?;
+        self.file_system.canonicalize(params).await
     }
 
     pub(crate) async fn fs_write_file(

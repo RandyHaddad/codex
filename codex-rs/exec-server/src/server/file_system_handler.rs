@@ -11,6 +11,8 @@ use crate::ExecutorFileSystem;
 use crate::RemoveOptions;
 use crate::local_file_system::LocalFileSystem;
 use crate::protocol::FS_WRITE_FILE_METHOD;
+use crate::protocol::FsCanonicalizeParams;
+use crate::protocol::FsCanonicalizeResponse;
 use crate::protocol::FsCopyParams;
 use crate::protocol::FsCopyResponse;
 use crate::protocol::FsCreateDirectoryParams;
@@ -40,6 +42,18 @@ impl FileSystemHandler {
         Self {
             file_system: LocalFileSystem::with_runtime_paths(runtime_paths),
         }
+    }
+
+    pub(crate) async fn canonicalize(
+        &self,
+        params: FsCanonicalizeParams,
+    ) -> Result<FsCanonicalizeResponse, JSONRPCErrorError> {
+        let path = self
+            .file_system
+            .canonicalize(&params.path, params.sandbox.as_ref())
+            .await
+            .map_err(map_fs_error)?;
+        Ok(FsCanonicalizeResponse { path })
     }
 
     pub(crate) async fn read_file(

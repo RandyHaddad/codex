@@ -79,6 +79,15 @@ impl LocalFileSystem {
 
 #[async_trait]
 impl ExecutorFileSystem for LocalFileSystem {
+    async fn canonicalize(
+        &self,
+        path: &AbsolutePathBuf,
+        sandbox: Option<&FileSystemSandboxContext>,
+    ) -> FileSystemResult<AbsolutePathBuf> {
+        let (file_system, sandbox) = self.file_system_for(sandbox)?;
+        file_system.canonicalize(path, sandbox).await
+    }
+
     async fn read_file(
         &self,
         path: &AbsolutePathBuf,
@@ -152,6 +161,15 @@ impl ExecutorFileSystem for LocalFileSystem {
 
 #[async_trait]
 impl ExecutorFileSystem for UnsandboxedFileSystem {
+    async fn canonicalize(
+        &self,
+        path: &AbsolutePathBuf,
+        sandbox: Option<&FileSystemSandboxContext>,
+    ) -> FileSystemResult<AbsolutePathBuf> {
+        reject_platform_sandbox_context(sandbox)?;
+        self.file_system.canonicalize(path, /*sandbox*/ None).await
+    }
+
     async fn read_file(
         &self,
         path: &AbsolutePathBuf,
@@ -238,6 +256,17 @@ impl ExecutorFileSystem for UnsandboxedFileSystem {
 
 #[async_trait]
 impl ExecutorFileSystem for DirectFileSystem {
+    async fn canonicalize(
+        &self,
+        path: &AbsolutePathBuf,
+        sandbox: Option<&FileSystemSandboxContext>,
+    ) -> FileSystemResult<AbsolutePathBuf> {
+        reject_sandbox_context(sandbox)?;
+        let path = tokio::fs::canonicalize(path.as_path()).await?;
+        AbsolutePathBuf::try_from(path)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+    }
+
     async fn read_file(
         &self,
         path: &AbsolutePathBuf,
@@ -518,6 +547,25 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use std::os::unix::fs::symlink;
+
+    #[tokio::test]
+    async fn direct_file_system_canonicalizes_symlinks() -> io::Result<()> {
+        let temp_dir = tempfile::TempDir::new()?;
+        let target = temp_dir.path().join("target");
+        let link = temp_dir.path().join("link");
+        std::fs::create_dir(&target)?;
+        symlink(&target, &link)?;
+        let link = AbsolutePathBuf::from_absolute_path(&link)?;
+        let target = AbsolutePathBuf::try_from(std::fs::canonicalize(&target)?)?;
+
+        assert_eq!(
+            DirectFileSystem
+                .canonicalize(&link, /*sandbox*/ None)
+                .await?,
+            target
+        );
+        Ok(())
+    }
 
     #[test]
     fn resolve_existing_path_handles_symlink_parent_dotdot_escape() -> io::Result<()> {

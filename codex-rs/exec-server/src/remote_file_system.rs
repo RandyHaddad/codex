@@ -15,6 +15,7 @@ use crate::FileSystemSandboxContext;
 use crate::ReadDirectoryEntry;
 use crate::RemoveOptions;
 use crate::client::LazyRemoteExecServerClient;
+use crate::protocol::FsCanonicalizeParams;
 use crate::protocol::FsCopyParams;
 use crate::protocol::FsCreateDirectoryParams;
 use crate::protocol::FsGetMetadataParams;
@@ -40,6 +41,23 @@ impl RemoteFileSystem {
 
 #[async_trait]
 impl ExecutorFileSystem for RemoteFileSystem {
+    async fn canonicalize(
+        &self,
+        path: &AbsolutePathBuf,
+        sandbox: Option<&FileSystemSandboxContext>,
+    ) -> FileSystemResult<AbsolutePathBuf> {
+        trace!("remote fs canonicalize");
+        let client = self.client.get().await.map_err(map_remote_error)?;
+        let response = client
+            .fs_canonicalize(FsCanonicalizeParams {
+                path: path.clone(),
+                sandbox: remote_sandbox_context(sandbox),
+            })
+            .await
+            .map_err(map_remote_error)?;
+        Ok(response.path)
+    }
+
     async fn read_file(
         &self,
         path: &AbsolutePathBuf,

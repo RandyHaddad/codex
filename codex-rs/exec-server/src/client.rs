@@ -41,6 +41,7 @@ use crate::protocol::ExecExitedNotification;
 use crate::protocol::ExecOutputDeltaNotification;
 use crate::protocol::ExecParams;
 use crate::protocol::ExecResponse;
+use crate::protocol::FS_CANONICALIZE_METHOD;
 use crate::protocol::FS_COPY_METHOD;
 use crate::protocol::FS_CREATE_DIRECTORY_METHOD;
 use crate::protocol::FS_GET_METADATA_METHOD;
@@ -48,6 +49,8 @@ use crate::protocol::FS_READ_DIRECTORY_METHOD;
 use crate::protocol::FS_READ_FILE_METHOD;
 use crate::protocol::FS_REMOVE_METHOD;
 use crate::protocol::FS_WRITE_FILE_METHOD;
+use crate::protocol::FsCanonicalizeParams;
+use crate::protocol::FsCanonicalizeResponse;
 use crate::protocol::FsCopyParams;
 use crate::protocol::FsCopyResponse;
 use crate::protocol::FsCreateDirectoryParams;
@@ -391,6 +394,13 @@ impl ExecServerClient {
         params: FsReadFileParams,
     ) -> Result<FsReadFileResponse, ExecServerError> {
         self.call(FS_READ_FILE_METHOD, &params).await
+    }
+
+    pub async fn fs_canonicalize(
+        &self,
+        params: FsCanonicalizeParams,
+    ) -> Result<FsCanonicalizeResponse, ExecServerError> {
+        self.call(FS_CANONICALIZE_METHOD, &params).await
     }
 
     pub async fn fs_write_file(
@@ -912,6 +922,7 @@ mod tests {
     use codex_app_server_protocol::JSONRPCMessage;
     use codex_app_server_protocol::JSONRPCNotification;
     use codex_app_server_protocol::JSONRPCResponse;
+    use codex_utils_absolute_path::AbsolutePathBuf;
     use futures::SinkExt;
     use futures::StreamExt;
     use pretty_assertions::assert_eq;
@@ -956,6 +967,9 @@ mod tests {
     use crate::protocol::ExecExitedNotification;
     use crate::protocol::ExecOutputDeltaNotification;
     use crate::protocol::ExecOutputStream;
+    use crate::protocol::FS_CANONICALIZE_METHOD;
+    use crate::protocol::FsCanonicalizeParams;
+    use crate::protocol::FsCanonicalizeResponse;
     use crate::protocol::INITIALIZE_METHOD;
     use crate::protocol::INITIALIZED_METHOD;
     use crate::protocol::InitializeResponse;
@@ -1022,6 +1036,81 @@ mod tests {
             .send(Message::Text(encoded.into()))
             .await
             .expect("json-rpc websocket frame should write");
+    }
+
+    #[tokio::test]
+    async fn fs_canonicalize_uses_remote_rpc() {
+        let (client_stdin, server_reader) = duplex(/*max_buf_size*/ 1 << 20);
+        let (mut server_writer, client_stdout) = duplex(/*max_buf_size*/ 1 << 20);
+        let expected_path = AbsolutePathBuf::current_dir().expect("current directory");
+        let expected_path_for_server = expected_path.clone();
+        let server = tokio::spawn(async move {
+            let mut lines = BufReader::new(server_reader).lines();
+            let initialize = read_jsonrpc_line(&mut lines).await;
+            let request = match initialize {
+                JSONRPCMessage::Request(request) if request.method == INITIALIZE_METHOD => request,
+                other => panic!("expected initialize request, got {other:?}"),
+            };
+            write_jsonrpc_line(
+                &mut server_writer,
+                JSONRPCMessage::Response(JSONRPCResponse {
+                    id: request.id,
+                    result: serde_json::to_value(InitializeResponse {
+                        session_id: "session-1".to_string(),
+                    })
+                    .expect("initialize response should serialize"),
+                }),
+            )
+            .await;
+            let initialized = read_jsonrpc_line(&mut lines).await;
+            assert!(matches!(
+                initialized,
+                JSONRPCMessage::Notification(notification)
+                    if notification.method == INITIALIZED_METHOD
+            ));
+            let canonicalize = read_jsonrpc_line(&mut lines).await;
+            let request = match canonicalize {
+                JSONRPCMessage::Request(request) if request.method == FS_CANONICALIZE_METHOD => {
+                    request
+                }
+                other => panic!("expected fs/canonicalize request, got {other:?}"),
+            };
+            write_jsonrpc_line(
+                &mut server_writer,
+                JSONRPCMessage::Response(JSONRPCResponse {
+                    id: request.id,
+                    result: serde_json::to_value(FsCanonicalizeResponse {
+                        path: expected_path_for_server,
+                    })
+                    .expect("canonicalize response should serialize"),
+                }),
+            )
+            .await;
+        });
+        let client = ExecServerClient::connect(
+            JsonRpcConnection::from_stdio(
+                client_stdout,
+                client_stdin,
+                "test-exec-server-client".to_string(),
+            ),
+            ExecServerClientConnectOptions::default(),
+        )
+        .await
+        .expect("client should connect");
+
+        assert_eq!(
+            client
+                .fs_canonicalize(FsCanonicalizeParams {
+                    path: expected_path.clone(),
+                    sandbox: None,
+                })
+                .await
+                .expect("canonicalize should succeed"),
+            FsCanonicalizeResponse {
+                path: expected_path
+            }
+        );
+        server.await.expect("server task should finish");
     }
 
     async fn complete_websocket_initialize(
