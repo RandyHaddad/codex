@@ -218,7 +218,7 @@ with Path(r"{log_path}").open("a", encoding="utf-8") as handle:
 
     assert!(engine.warnings().is_empty());
     assert_eq!(engine.handlers.len(), 1);
-    assert_eq!(engine.handlers[0].source, HookSource::CloudRequirements);
+    assert_eq!(engine.handlers[0].source, HookSource::Mdm);
     let listed = crate::list_hooks(crate::HooksConfig {
         legacy_notify_argv: None,
         feature_enabled: true,
@@ -481,7 +481,7 @@ fn user_disablement_filters_non_managed_hooks_but_not_managed_hooks() {
     );
 
     assert_eq!(engine.handlers.len(), 1);
-    assert_eq!(engine.handlers[0].source, HookSource::CloudRequirements);
+    assert_eq!(engine.handlers[0].source, HookSource::Mdm);
     let discovered = super::discovery::discover_handlers(
         Some(&config_layer_stack),
         Vec::new(),
