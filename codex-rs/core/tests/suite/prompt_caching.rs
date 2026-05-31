@@ -189,6 +189,8 @@ async fn prompt_tools_are_consistent_across_requests() -> anyhow::Result<()> {
         "create_goal",
         "update_goal",
         "request_user_input",
+        "set_working_directory",
+        "add_workspace_root",
         "apply_patch",
         "view_image",
         "tool_search",
