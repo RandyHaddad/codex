@@ -9010,21 +9010,16 @@ sandbox = "unelevated"
 "#,
     )?;
 
-    let requirements = codex_config::ConfigRequirementsToml {
-        windows: Some(codex_config::WindowsRequirementsToml {
-            allowed_sandbox_implementations: Some(vec![
-                codex_config::types::WindowsSandboxModeToml::Elevated,
-            ]),
-        }),
-        ..Default::default()
-    };
-
     let config = ConfigBuilder::without_managed_config_for_tests()
         .codex_home(codex_home.path().to_path_buf())
         .fallback_cwd(Some(codex_home.path().to_path_buf()))
-        .cloud_requirements(CloudRequirementsLoader::new(async move {
-            Ok(Some(requirements))
-        }))
+        .cloud_config_bundle(
+            CloudConfigBundleFixture::loader_with_enterprise_requirement(
+                r#"[windows]
+allowed_sandbox_implementations = ["elevated"]
+"#,
+            ),
+        )
         .build()
         .await?;
 
