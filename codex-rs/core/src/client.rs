@@ -795,7 +795,6 @@ impl ModelClient {
             store: provider.is_azure_responses_endpoint(),
             stream: true,
             include,
-            max_output_tokens: prompt.max_output_tokens,
             service_tier,
             prompt_cache_key,
             text,
@@ -1314,7 +1313,9 @@ impl ModelClientSession {
                 client_setup.api_auth,
             )
             .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
-            let stream_result = client.stream_request(request, options).await;
+            let stream_result = client
+                .stream_request_with_max_output_tokens(request, options, prompt.max_output_tokens)
+                .await;
 
             match stream_result {
                 Ok(stream) => {
@@ -1488,7 +1489,11 @@ impl ModelClientSession {
                     ))
                 })?;
             let stream_result = websocket_connection
-                .stream_request(ws_request, self.websocket_session.connection_reused())
+                .stream_request_with_max_output_tokens(
+                    ws_request,
+                    self.websocket_session.connection_reused(),
+                    prompt.max_output_tokens,
+                )
                 .await
                 .map_err(|err| {
                     let response_debug_context =
