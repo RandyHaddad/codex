@@ -34,6 +34,7 @@ pub(super) async fn create_thread(
             params.thread_source,
             params.base_instructions,
             params.dynamic_tools,
+            params.multi_agent_version,
         ),
     )
     .await

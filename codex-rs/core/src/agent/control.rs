@@ -12,7 +12,6 @@ use crate::shell_snapshot::ShellSnapshot;
 use crate::thread_manager::ResumeThreadWithHistoryOptions;
 use crate::thread_manager::ThreadManagerState;
 use crate::thread_rollout_truncation::truncate_rollout_to_last_n_fork_turns;
-use codex_features::Feature;
 use codex_protocol::AgentPath;
 use codex_protocol::SessionId;
 use codex_protocol::ThreadId;
@@ -23,6 +22,7 @@ use codex_protocol::models::MessagePhase;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::InitialHistory;
 use codex_protocol::protocol::InterAgentCommunication;
+use codex_protocol::protocol::MultiAgentVersion;
 use codex_protocol::protocol::Op;
 use codex_protocol::protocol::ResumedHistory;
 use codex_protocol::protocol::RolloutItem;
@@ -55,6 +55,7 @@ pub(crate) struct SpawnAgentOptions {
     pub(crate) fork_parent_spawn_call_id: Option<String>,
     pub(crate) fork_mode: Option<SpawnAgentForkMode>,
     pub(crate) environments: Option<Vec<TurnEnvironmentSelection>>,
+    pub(crate) multi_agent_version: Option<MultiAgentVersion>,
 }
 
 #[derive(Clone, Debug)]
@@ -212,12 +213,24 @@ impl AgentControl {
 
     async fn spawn_agent_internal(
         &self,
-        config: crate::config::Config,
+        mut config: crate::config::Config,
         initial_operation: Op,
         session_source: Option<SessionSource>,
         options: SpawnAgentOptions,
     ) -> CodexResult<LiveAgent> {
         let state = self.upgrade()?;
+        let inherited_multi_agent_version = self
+            .inherited_multi_agent_version_for_source(
+                &state,
+                session_source.as_ref(),
+                options.multi_agent_version,
+            )
+            .await;
+        if let Some(multi_agent_version) = inherited_multi_agent_version {
+            config
+                .apply_multi_agent_version(multi_agent_version)
+                .map_err(|err| CodexErr::InvalidRequest(err.to_string()))?;
+        }
         let mut reservation = self.state.reserve_spawn_slot(config.agent_max_threads)?;
         let inherited_shell_snapshot = self
             .inherited_shell_snapshot_for_source(&state, session_source.as_ref())
@@ -258,6 +271,7 @@ impl AgentControl {
                     &options,
                     inherited_shell_snapshot,
                     inherited_exec_policy,
+                    inherited_multi_agent_version,
                 ))
                 .await?
             }
@@ -274,6 +288,7 @@ impl AgentControl {
                     inherited_shell_snapshot,
                     inherited_exec_policy,
                     options.environments.clone(),
+                    inherited_multi_agent_version,
                 ))
                 .await?
             }
@@ -339,7 +354,7 @@ impl AgentControl {
 
         self.send_input(new_thread.thread_id, initial_operation)
             .await?;
-        if !new_thread.thread.enabled(Feature::MultiAgentV2) {
+        if new_thread.thread.multi_agent_version().await != MultiAgentVersion::V2 {
             let child_reference = agent_metadata
                 .agent_path
                 .as_ref()
@@ -368,6 +383,7 @@ impl AgentControl {
         options: &SpawnAgentOptions,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
         inherited_exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
+        inherited_multi_agent_version: Option<MultiAgentVersion>,
     ) -> CodexResult<crate::thread_manager::NewThread> {
         if options.fork_parent_spawn_call_id.is_none() {
             return Err(CodexErr::Fatal(
@@ -411,6 +427,18 @@ impl AgentControl {
                 ))
             })?;
 
+        let multi_agent_version = if let Some(parent_thread) = parent_thread.as_ref() {
+            parent_thread.multi_agent_version().await
+        } else {
+            state
+                .resolve_multi_agent_version(
+                    &config,
+                    &InitialHistory::Forked(parent_history.items.clone()),
+                    Some(parent_thread_id),
+                    inherited_multi_agent_version,
+                )
+                .await
+        };
         let mut forked_rollout_items = parent_history.items;
         if let SpawnAgentForkMode::LastNTurns(last_n_turns) = fork_mode {
             forked_rollout_items =
@@ -418,7 +446,7 @@ impl AgentControl {
         }
         let multi_agent_v2_usage_hint_texts_to_filter: Vec<String> =
             if let Some(parent_thread) = parent_thread.as_ref() {
-                if parent_thread.enabled(Feature::MultiAgentV2) {
+                if multi_agent_version == MultiAgentVersion::V2 {
                     let parent_config = parent_thread.codex.session.get_config().await;
                     [
                         parent_config
@@ -436,7 +464,7 @@ impl AgentControl {
                 } else {
                     Vec::new()
                 }
-            } else if config.features.enabled(Feature::MultiAgentV2) {
+            } else if multi_agent_version == MultiAgentVersion::V2 {
                 [
                     config.multi_agent_v2.root_agent_usage_hint_text.clone(),
                     config.multi_agent_v2.subagent_usage_hint_text.clone(),
@@ -472,7 +500,7 @@ impl AgentControl {
             }
         }
         if preserve_reference_context_item
-            && config.features.enabled(Feature::MultiAgentV2)
+            && multi_agent_version == MultiAgentVersion::V2
             && let Some(subagent_usage_hint_text) =
                 config.multi_agent_v2.subagent_usage_hint_text.clone()
             && let Some(subagent_usage_hint_message) =
@@ -495,6 +523,7 @@ impl AgentControl {
                 inherited_shell_snapshot,
                 inherited_exec_policy,
                 options.environments.clone(),
+                Some(multi_agent_version),
             )
             .await
     }
@@ -581,15 +610,38 @@ impl AgentControl {
         thread_id: ThreadId,
         session_source: SessionSource,
     ) -> CodexResult<ThreadId> {
-        if let SessionSource::SubAgent(SubAgentSource::ThreadSpawn { depth, .. }) = &session_source
-            && *depth >= config.agent_max_depth
-            && !config.features.enabled(Feature::MultiAgentV2)
-        {
-            let _ = config.features.disable(Feature::SpawnCsv);
-            let _ = config.features.disable(Feature::Collab);
-        }
         let state = self.upgrade()?;
         let state_db_ctx = state.state_db();
+        let inherited_multi_agent_version = self
+            .inherited_multi_agent_version_for_source(&state, Some(&session_source), None)
+            .await;
+        let stored_thread = state
+            .read_stored_thread(ReadThreadParams {
+                thread_id,
+                include_archived: true,
+                include_history: true,
+            })
+            .await?;
+        let history = stored_thread
+            .history
+            .ok_or_else(|| CodexErr::ThreadNotFound(thread_id))?
+            .items;
+        let initial_history = InitialHistory::Resumed(ResumedHistory {
+            conversation_id: thread_id,
+            history,
+            rollout_path: stored_thread.rollout_path,
+        });
+        let multi_agent_version = state
+            .resolve_multi_agent_version(
+                &config,
+                &initial_history,
+                /*forked_from_thread_id*/ None,
+                inherited_multi_agent_version,
+            )
+            .await;
+        config
+            .apply_multi_agent_version(multi_agent_version)
+            .map_err(|err| CodexErr::InvalidRequest(err.to_string()))?;
         let mut reservation = self.state.reserve_spawn_slot(config.agent_max_threads)?;
         let (session_source, agent_metadata) = match session_source {
             SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
@@ -627,30 +679,16 @@ impl AgentControl {
         let inherited_exec_policy = self
             .inherited_exec_policy_for_source(&state, Some(&session_source), &config)
             .await;
-        let stored_thread = state
-            .read_stored_thread(ReadThreadParams {
-                thread_id,
-                include_archived: true,
-                include_history: true,
-            })
-            .await?;
-        let history = stored_thread
-            .history
-            .ok_or_else(|| CodexErr::ThreadNotFound(thread_id))?
-            .items;
 
         let resumed_thread = state
             .resume_thread_with_history_with_source(ResumeThreadWithHistoryOptions {
                 config: config.clone(),
-                initial_history: InitialHistory::Resumed(ResumedHistory {
-                    conversation_id: thread_id,
-                    history,
-                    rollout_path: stored_thread.rollout_path,
-                }),
+                initial_history,
                 agent_control: self.clone(),
                 session_source,
                 inherited_shell_snapshot,
                 inherited_exec_policy,
+                inherited_multi_agent_version: Some(multi_agent_version),
             })
             .await?;
         let mut agent_metadata = agent_metadata;
@@ -659,7 +697,7 @@ impl AgentControl {
         // Resumed threads are re-registered in-memory and need the same listener
         // attachment path as freshly spawned threads.
         state.notify_thread_created(resumed_thread.thread_id);
-        if !resumed_thread.thread.enabled(Feature::MultiAgentV2) {
+        if resumed_thread.thread.multi_agent_version().await != MultiAgentVersion::V2 {
             let child_reference = agent_metadata
                 .agent_path
                 .as_ref()
@@ -1044,12 +1082,13 @@ impl AgentControl {
             };
             let child_thread = state.get_thread(child_thread_id).await.ok();
             let message = format_subagent_notification_message(child_reference.as_str(), &status);
-            if child_agent_path.is_some()
-                && child_thread
-                    .as_ref()
-                    .map(|thread| thread.enabled(Feature::MultiAgentV2))
-                    .unwrap_or(true)
-            {
+            let child_uses_multi_agent_v2 = match child_thread.as_ref() {
+                Some(child_thread) => {
+                    child_thread.multi_agent_version().await == MultiAgentVersion::V2
+                }
+                None => true,
+            };
+            if child_agent_path.is_some() && child_uses_multi_agent_v2 {
                 let Some(child_agent_path) = child_agent_path.clone() else {
                     return;
                 };
@@ -1141,6 +1180,25 @@ impl AgentControl {
 
         let parent_thread = state.get_thread(*parent_thread_id).await.ok()?;
         parent_thread.codex.session.user_shell().shell_snapshot()
+    }
+
+    async fn inherited_multi_agent_version_for_source(
+        &self,
+        state: &Arc<ThreadManagerState>,
+        session_source: Option<&SessionSource>,
+        requested_multi_agent_version: Option<MultiAgentVersion>,
+    ) -> Option<MultiAgentVersion> {
+        if requested_multi_agent_version.is_some() {
+            return requested_multi_agent_version;
+        }
+        let Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+            parent_thread_id, ..
+        })) = session_source
+        else {
+            return None;
+        };
+        let parent_thread = state.get_thread(*parent_thread_id).await.ok()?;
+        Some(parent_thread.multi_agent_version().await)
     }
 
     async fn inherited_exec_policy_for_source(
