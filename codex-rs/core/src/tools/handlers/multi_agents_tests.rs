@@ -1362,7 +1362,6 @@ async fn multi_agent_v2_send_message_accepts_root_target_from_child() {
     let multi_agent_version = root
         .thread
         .multi_agent_version()
-        .await
         .expect("root thread should have a multi-agent version");
 
     let child_path = AgentPath::try_from("/root/worker").expect("agent path");
@@ -1444,7 +1443,6 @@ async fn multi_agent_v2_assign_task_rejects_root_target_from_child() {
     let multi_agent_version = root
         .thread
         .multi_agent_version()
-        .await
         .expect("root thread should have a multi-agent version");
 
     let child_path = AgentPath::try_from("/root/worker").expect("agent path");
@@ -1622,7 +1620,6 @@ async fn multi_agent_v2_list_agents_filters_by_relative_path_prefix() {
     let multi_agent_version = root
         .thread
         .multi_agent_version()
-        .await
         .expect("root thread should have a multi-agent version");
 
     let researcher_path = AgentPath::from_string("/root/researcher".to_string()).expect("path");

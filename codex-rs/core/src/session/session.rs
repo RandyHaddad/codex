@@ -48,7 +48,6 @@ pub(crate) struct SessionConfiguration {
     pub(super) provider: ModelProviderInfo,
 
     pub(super) collaboration_mode: CollaborationMode,
-    pub(super) multi_agent_version: Option<MultiAgentVersion>,
     pub(super) model_reasoning_summary: Option<ReasoningSummaryConfig>,
     pub(super) service_tier: Option<String>,
 
@@ -505,6 +504,7 @@ impl Session {
         thread_store: Arc<dyn ThreadStore>,
         parent_rollout_thread_trace: ThreadTraceContext,
         attestation_provider: Option<Arc<dyn AttestationProvider>>,
+        multi_agent_version: Option<MultiAgentVersion>,
     ) -> anyhow::Result<Arc<Self>> {
         debug!(
             "Configuring session: model={}; provider={:?}",
@@ -515,6 +515,8 @@ impl Session {
             .forked_from_thread_id
             .or_else(|| initial_history.forked_from_id());
         session_configuration.forked_from_thread_id = forked_from_id;
+        let multi_agent_version = multi_agent_version.map(OnceLock::from).unwrap_or_default();
+        let initial_multi_agent_version = multi_agent_version.get().copied();
 
         let event_persistence_mode = if session_configuration.persist_extended_history {
             ThreadEventPersistenceMode::Extended
@@ -560,7 +562,7 @@ impl Session {
                                     text: session_configuration.base_instructions.clone(),
                                 },
                                 dynamic_tools: session_configuration.dynamic_tools.clone(),
-                                multi_agent_version: session_configuration.multi_agent_version,
+                                multi_agent_version: initial_multi_agent_version,
                                 metadata: ThreadPersistenceMetadata {
                                     cwd: Some(config.cwd.to_path_buf()),
                                     model_provider: config.model_provider_id.clone(),
@@ -878,8 +880,17 @@ impl Session {
                     ))
                     .await;
             session_configuration.thread_name = thread_name.clone();
-            validate_config_lock_if_configured(&session_configuration).await?;
-            export_config_lock_if_configured(&session_configuration, thread_id).await?;
+            validate_config_lock_if_configured(
+                &session_configuration,
+                initial_multi_agent_version,
+            )
+            .await?;
+            export_config_lock_if_configured(
+                &session_configuration,
+                thread_id,
+                initial_multi_agent_version,
+            )
+            .await?;
             let state = SessionState::new(session_configuration.clone());
             let managed_network_requirements_configured = config
                 .config_layer_stack
@@ -1066,10 +1077,7 @@ impl Session {
                 state: Mutex::new(state),
                 managed_network_proxy_refresh_lock: Semaphore::new(/*permits*/ 1),
                 features: config.features.clone(),
-                multi_agent_version: session_configuration
-                    .multi_agent_version
-                    .map(OnceLock::from)
-                    .unwrap_or_default(),
+                multi_agent_version,
                 pending_mcp_server_refresh_config: Mutex::new(None),
                 conversation: Arc::new(RealtimeConversationManager::new()),
                 active_turn: Mutex::new(None),
