@@ -13218,14 +13218,7 @@
           "individualLimit": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "$ref": "#/definitions/v2/SpendControlLimitSnapshot"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "$ref": "#/definitions/v2/SpendControlLimitSnapshot"
               },
               {
                 "type": "null"
