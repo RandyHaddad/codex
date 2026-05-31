@@ -25,15 +25,27 @@ use crate::types::WindowsSandboxModeToml;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RequirementSource {
     Unknown,
-    MdmManagedPreferences { domain: String, key: String },
+    MdmManagedPreferences {
+        domain: String,
+        key: String,
+    },
     /// Multiple requirements layers contributed to the final value. Sources are
     /// stored highest-priority first, matching the order surfaced in errors.
-    Composite { sources: Vec<RequirementSource> },
+    Composite {
+        sources: Vec<RequirementSource>,
+    },
     /// A backend-delivered enterprise-managed layer. `id` is the stable backend
     /// identifier; `name` is the admin-facing display name.
-    EnterpriseManaged { id: String, name: String },
-    SystemRequirementsToml { file: AbsolutePathBuf },
-    LegacyManagedConfigTomlFromFile { file: AbsolutePathBuf },
+    EnterpriseManaged {
+        id: String,
+        name: String,
+    },
+    SystemRequirementsToml {
+        file: AbsolutePathBuf,
+    },
+    LegacyManagedConfigTomlFromFile {
+        file: AbsolutePathBuf,
+    },
     LegacyManagedConfigTomlFromMdm,
 }
 
