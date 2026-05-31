@@ -542,6 +542,13 @@ impl Codex {
         let multi_agent_version = conversation_history
             .get_multi_agent_version()
             .or(inherited_multi_agent_version)
+            .or_else(|| {
+                if session_source.is_non_root_agent() {
+                    None
+                } else {
+                    model_info.multi_agent_version
+                }
+            })
             .or_else(|| config.multi_agent_version_from_features());
         let _ = config
             .effective_agent_max_threads(multi_agent_version)
