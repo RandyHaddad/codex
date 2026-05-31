@@ -86,7 +86,7 @@ pub enum RolloutRecorderParams {
         thread_source: Option<ThreadSource>,
         base_instructions: BaseInstructions,
         dynamic_tools: Vec<DynamicToolSpec>,
-        multi_agent_version: MultiAgentVersion,
+        multi_agent_version: Option<MultiAgentVersion>,
     },
     Resume {
         path: PathBuf,
@@ -162,7 +162,7 @@ impl RolloutRecorderParams {
         thread_source: Option<ThreadSource>,
         base_instructions: BaseInstructions,
         dynamic_tools: Vec<DynamicToolSpec>,
-        multi_agent_version: MultiAgentVersion,
+        multi_agent_version: Option<MultiAgentVersion>,
     ) -> Self {
         Self::Create {
             conversation_id,
@@ -695,7 +695,7 @@ impl RolloutRecorder {
                         Some(dynamic_tools)
                     },
                     memory_mode: (!config.generate_memories()).then_some("disabled".to_string()),
-                    multi_agent_version: Some(multi_agent_version),
+                    multi_agent_version,
                 };
 
                 (None, Some(log_file_info), path, Some(session_meta))

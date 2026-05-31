@@ -9862,10 +9862,7 @@ async fn multi_agent_version_resolution_prefers_v2_then_v1_then_disabled() -> st
         .features
         .disable(Feature::Collab)
         .expect("test config should allow feature update");
-    assert_eq!(
-        config.multi_agent_version_from_features(),
-        codex_protocol::protocol::MultiAgentVersion::None
-    );
+    assert_eq!(config.multi_agent_version_from_features(), None);
 
     config
         .features
@@ -9873,7 +9870,7 @@ async fn multi_agent_version_resolution_prefers_v2_then_v1_then_disabled() -> st
         .expect("test config should allow feature update");
     assert_eq!(
         config.multi_agent_version_from_features(),
-        codex_protocol::protocol::MultiAgentVersion::V1
+        Some(codex_protocol::protocol::MultiAgentVersion::V1)
     );
 
     config
@@ -9882,7 +9879,7 @@ async fn multi_agent_version_resolution_prefers_v2_then_v1_then_disabled() -> st
         .expect("test config should allow feature update");
     assert_eq!(
         config.multi_agent_version_from_features(),
-        codex_protocol::protocol::MultiAgentVersion::V2
+        Some(codex_protocol::protocol::MultiAgentVersion::V2)
     );
 
     Ok(())
@@ -9907,7 +9904,7 @@ max_threads = 3
         .build()
         .await?;
     let err = config
-        .apply_multi_agent_version(codex_protocol::protocol::MultiAgentVersion::V2)
+        .apply_multi_agent_version(Some(codex_protocol::protocol::MultiAgentVersion::V2))
         .expect_err("agents.max_threads should conflict with multi_agent_v2");
 
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
