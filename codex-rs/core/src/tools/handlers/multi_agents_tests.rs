@@ -1347,18 +1347,23 @@ async fn multi_agent_v2_spawn_rejects_zero_fork_turns() {
 async fn multi_agent_v2_send_message_accepts_root_target_from_child() {
     let (mut session, mut turn) = make_session_and_context().await;
     let manager = thread_manager();
-    let root = manager
-        .start_thread((*turn.config).clone())
-        .await
-        .expect("root thread should start");
-    session.services.agent_control = manager.agent_control();
-    session.conversation_id = root.thread_id;
     let mut config = (*turn.config).clone();
     config
         .features
         .enable(Feature::MultiAgentV2)
         .expect("test config should allow feature update");
     set_turn_config(&mut turn, config);
+    let root = manager
+        .start_thread((*turn.config).clone())
+        .await
+        .expect("root thread should start");
+    session.services.agent_control = manager.agent_control();
+    session.conversation_id = root.thread_id;
+    let multi_agent_version = root
+        .thread
+        .multi_agent_version()
+        .await
+        .expect("root thread should have a multi-agent version");
 
     let child_path = AgentPath::try_from("/root/worker").expect("agent path");
     let child_thread_id = session
@@ -1378,6 +1383,7 @@ async fn multi_agent_v2_send_message_accepts_root_target_from_child() {
                 agent_nickname: None,
                 agent_role: None,
             })),
+            multi_agent_version,
             crate::agent::control::SpawnAgentOptions::default(),
         )
         .await
@@ -1423,18 +1429,23 @@ async fn multi_agent_v2_send_message_accepts_root_target_from_child() {
 async fn multi_agent_v2_assign_task_rejects_root_target_from_child() {
     let (mut session, mut turn) = make_session_and_context().await;
     let manager = thread_manager();
-    let root = manager
-        .start_thread((*turn.config).clone())
-        .await
-        .expect("root thread should start");
-    session.services.agent_control = manager.agent_control();
-    session.conversation_id = root.thread_id;
     let mut config = (*turn.config).clone();
     config
         .features
         .enable(Feature::MultiAgentV2)
         .expect("test config should allow feature update");
     set_turn_config(&mut turn, config);
+    let root = manager
+        .start_thread((*turn.config).clone())
+        .await
+        .expect("root thread should start");
+    session.services.agent_control = manager.agent_control();
+    session.conversation_id = root.thread_id;
+    let multi_agent_version = root
+        .thread
+        .multi_agent_version()
+        .await
+        .expect("root thread should have a multi-agent version");
 
     let child_path = AgentPath::try_from("/root/worker").expect("agent path");
     let child_thread_id = session
@@ -1454,6 +1465,7 @@ async fn multi_agent_v2_assign_task_rejects_root_target_from_child() {
                 agent_nickname: None,
                 agent_role: None,
             })),
+            multi_agent_version,
             crate::agent::control::SpawnAgentOptions::default(),
         )
         .await
@@ -1598,15 +1610,20 @@ async fn multi_agent_v2_list_agents_returns_completed_status_and_last_task_messa
 async fn multi_agent_v2_list_agents_filters_by_relative_path_prefix() {
     let (mut session, mut turn) = make_session_and_context().await;
     let manager = thread_manager();
+    let mut config = (*turn.config).clone();
+    let _ = config.features.enable(Feature::MultiAgentV2);
+    set_turn_config(&mut turn, config.clone());
     let root = manager
         .start_thread((*turn.config).clone())
         .await
         .expect("root thread should start");
     session.services.agent_control = manager.agent_control();
     session.conversation_id = root.thread_id;
-    let mut config = (*turn.config).clone();
-    let _ = config.features.enable(Feature::MultiAgentV2);
-    set_turn_config(&mut turn, config.clone());
+    let multi_agent_version = root
+        .thread
+        .multi_agent_version()
+        .await
+        .expect("root thread should have a multi-agent version");
 
     let researcher_path = AgentPath::from_string("/root/researcher".to_string()).expect("path");
     let worker_path = AgentPath::from_string("/root/researcher/worker".to_string()).expect("path");
@@ -1627,6 +1644,7 @@ async fn multi_agent_v2_list_agents_filters_by_relative_path_prefix() {
                 agent_nickname: None,
                 agent_role: None,
             })),
+            multi_agent_version,
             crate::agent::control::SpawnAgentOptions::default(),
         )
         .await
@@ -1648,6 +1666,7 @@ async fn multi_agent_v2_list_agents_filters_by_relative_path_prefix() {
                 agent_nickname: None,
                 agent_role: None,
             })),
+            multi_agent_version,
             crate::agent::control::SpawnAgentOptions::default(),
         )
         .await
