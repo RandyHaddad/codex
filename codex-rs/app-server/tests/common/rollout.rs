@@ -155,6 +155,7 @@ pub fn create_fake_parented_rollout_with_source(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_fake_rollout_with_source_and_parent_thread_id(
     codex_home: &Path,
     filename_ts: &str,
