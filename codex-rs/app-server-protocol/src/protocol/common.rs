@@ -2973,7 +2973,7 @@ mod tests {
             panic!("expected account/rateLimits/updated notification");
         };
         assert_eq!(
-            notification.individual_limit_update,
+            notification.individual_limit_update(),
             v2::SpendControlLimitUpdate::Unchanged
         );
         Ok(())
