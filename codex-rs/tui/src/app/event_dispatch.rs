@@ -714,7 +714,7 @@ impl App {
             AppEvent::RateLimitsLoaded { origin, result } => match result {
                 Ok(snapshots) => {
                     for snapshot in snapshots {
-                        self.chat_widget.on_rate_limit_snapshot(Some(snapshot));
+                        self.chat_widget.replace_rate_limit_snapshot(Some(snapshot));
                     }
                     match origin {
                         RateLimitRefreshOrigin::StartupPrefetch => {
