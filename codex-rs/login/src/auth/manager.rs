@@ -198,7 +198,7 @@ impl From<RefreshTokenError> for std::io::Error {
 }
 
 impl CodexAuth {
-    async fn from_auth_dot_json(
+    pub async fn from_auth_dot_json(
         codex_home: &Path,
         auth_dot_json: AuthDotJson,
         auth_credentials_store_mode: AuthCredentialsStoreMode,
