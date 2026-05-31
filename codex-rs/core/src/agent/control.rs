@@ -5,6 +5,7 @@ use crate::agent::role::DEFAULT_ROLE_NAME;
 use crate::agent::role::resolve_role_config;
 use crate::agent::status::is_final;
 use crate::codex_thread::ThreadConfigSnapshot;
+use crate::config::Config;
 use crate::session::emit_subagent_session_started;
 use crate::session_prefix::format_subagent_context_line;
 use crate::session_prefix::format_subagent_notification_message;
@@ -79,10 +80,7 @@ fn default_agent_nickname_list() -> Vec<&'static str> {
         .collect()
 }
 
-fn agent_nickname_candidates(
-    config: &crate::config::Config,
-    role_name: Option<&str>,
-) -> Vec<String> {
+fn agent_nickname_candidates(config: &Config, role_name: Option<&str>) -> Vec<String> {
     let role_name = role_name.unwrap_or(DEFAULT_ROLE_NAME);
     if let Some(candidates) =
         resolve_role_config(config, role_name).and_then(|role| role.nickname_candidates.clone())
@@ -144,6 +142,51 @@ fn is_multi_agent_v2_usage_hint_message(item: &ResponseItem, usage_hint_texts: &
         .any(|usage_hint_text| usage_hint_text == text)
 }
 
+async fn load_resumed_history_and_resolve_multi_agent_version(
+    state: &ThreadManagerState,
+    config: &Config,
+    thread_id: ThreadId,
+    session_source: &SessionSource,
+) -> CodexResult<(InitialHistory, Option<MultiAgentVersion>)> {
+    let inherited_multi_agent_version =
+        if let SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+            parent_thread_id, ..
+        }) = session_source
+        {
+            match state.get_thread(*parent_thread_id).await {
+                Ok(parent_thread) => parent_thread.multi_agent_version(),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+    let stored_thread = state
+        .read_stored_thread(ReadThreadParams {
+            thread_id,
+            include_archived: true,
+            include_history: true,
+        })
+        .await?;
+    let history = stored_thread
+        .history
+        .ok_or_else(|| CodexErr::ThreadNotFound(thread_id))?
+        .items;
+    let initial_history = InitialHistory::Resumed(ResumedHistory {
+        conversation_id: thread_id,
+        history,
+        rollout_path: stored_thread.rollout_path,
+    });
+    let multi_agent_version = state
+        .resolve_multi_agent_version(
+            config,
+            &initial_history,
+            /*forked_from_thread_id*/ None,
+            inherited_multi_agent_version,
+        )
+        .await;
+    Ok((initial_history, multi_agent_version))
+}
+
 /// Control-plane handle for multi-agent operations.
 /// `AgentControl` is held by each session (via `SessionServices`). It provides capability to
 /// spawn new agents and the inter-agent communication layer.
@@ -184,7 +227,7 @@ impl AgentControl {
     #[cfg(test)]
     pub(crate) async fn spawn_agent(
         &self,
-        config: crate::config::Config,
+        config: Config,
         initial_operation: Op,
         session_source: Option<SessionSource>,
     ) -> CodexResult<ThreadId> {
@@ -219,7 +262,7 @@ impl AgentControl {
     /// Spawn an agent thread with some metadata.
     pub(crate) async fn spawn_agent_with_metadata(
         &self,
-        config: crate::config::Config,
+        config: Config,
         initial_operation: Op,
         session_source: Option<SessionSource>,
         multi_agent_version: MultiAgentVersion,
@@ -237,7 +280,7 @@ impl AgentControl {
 
     async fn spawn_agent_internal(
         &self,
-        config: crate::config::Config,
+        config: Config,
         initial_operation: Op,
         session_source: Option<SessionSource>,
         multi_agent_version: MultiAgentVersion,
@@ -395,7 +438,7 @@ impl AgentControl {
     async fn spawn_forked_thread(
         &self,
         state: &Arc<ThreadManagerState>,
-        config: crate::config::Config,
+        config: Config,
         session_source: SessionSource,
         options: &SpawnAgentOptions,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -536,7 +579,7 @@ impl AgentControl {
     /// Resume an existing agent thread from a recorded rollout file.
     pub(crate) async fn resume_agent_from_rollout(
         &self,
-        config: crate::config::Config,
+        config: Config,
         thread_id: ThreadId,
         session_source: SessionSource,
     ) -> CodexResult<ThreadId> {
@@ -611,48 +654,20 @@ impl AgentControl {
 
     async fn resume_single_agent_from_rollout(
         &self,
-        config: crate::config::Config,
+        config: Config,
         thread_id: ThreadId,
         session_source: SessionSource,
     ) -> CodexResult<ThreadId> {
         let state = self.upgrade()?;
         let state_db_ctx = state.state_db();
-        let inherited_multi_agent_version =
-            if let SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
-                parent_thread_id, ..
-            }) = &session_source
-            {
-                match state.get_thread(*parent_thread_id).await {
-                    Ok(parent_thread) => parent_thread.multi_agent_version(),
-                    Err(_) => None,
-                }
-            } else {
-                None
-            };
-        let stored_thread = state
-            .read_stored_thread(ReadThreadParams {
-                thread_id,
-                include_archived: true,
-                include_history: true,
-            })
-            .await?;
-        let history = stored_thread
-            .history
-            .ok_or_else(|| CodexErr::ThreadNotFound(thread_id))?
-            .items;
-        let initial_history = InitialHistory::Resumed(ResumedHistory {
-            conversation_id: thread_id,
-            history,
-            rollout_path: stored_thread.rollout_path,
-        });
-        let multi_agent_version = state
-            .resolve_multi_agent_version(
+        let (initial_history, multi_agent_version) =
+            load_resumed_history_and_resolve_multi_agent_version(
+                state.as_ref(),
                 &config,
-                &initial_history,
-                /*forked_from_thread_id*/ None,
-                inherited_multi_agent_version,
+                thread_id,
+                &session_source,
             )
-            .await;
+            .await?;
         let agent_max_threads = config
             .effective_agent_max_threads(multi_agent_version)
             .map_err(|err| CodexErr::InvalidRequest(err.to_string()))?;
@@ -1138,7 +1153,7 @@ impl AgentControl {
     fn prepare_thread_spawn(
         &self,
         reservation: &mut crate::agent::registry::SpawnReservation,
-        config: &crate::config::Config,
+        config: &Config,
         parent_thread_id: ThreadId,
         depth: i32,
         agent_path: Option<AgentPath>,
@@ -1200,7 +1215,7 @@ impl AgentControl {
         &self,
         state: &Arc<ThreadManagerState>,
         session_source: Option<&SessionSource>,
-        child_config: &crate::config::Config,
+        child_config: &Config,
     ) -> Option<Arc<crate::exec_policy::ExecPolicyManager>> {
         let Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
             parent_thread_id, ..
