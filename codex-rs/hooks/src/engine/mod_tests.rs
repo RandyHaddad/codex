@@ -1148,6 +1148,7 @@ async fn plugin_hook_sources_run_with_plugin_env_and_plugin_source() {
     fs::create_dir_all(plugin_root.join("hooks")).expect("create hooks dir");
     let source_path = plugin_root.join("hooks/hooks.json");
     let script_path = plugin_root.join("hooks/write_env.py");
+    let windows_script_path = plugin_root.join("hooks/write_env.ps1");
     fs::write(
         script_path.as_path(),
         r#"import json
@@ -1161,6 +1162,16 @@ print(json.dumps({
 "#,
     )
     .expect("write hook script");
+    fs::write(
+        windows_script_path.as_path(),
+        r#"$msg = ConvertTo-Json -Compress -InputObject @{
+    plugin = $env:PLUGIN_ROOT
+    claude = $env:CLAUDE_PLUGIN_ROOT
+}
+ConvertTo-Json -Compress -InputObject @{ systemMessage = $msg }
+"#,
+    )
+    .expect("write Windows hook script");
     let plugin_id = PluginId::parse("demo-plugin@test-marketplace").expect("plugin id");
     let plugin_hook_sources = vec![PluginHookSource {
         plugin_id,
@@ -1172,8 +1183,11 @@ print(json.dumps({
             pre_tool_use: vec![MatcherGroup {
                 matcher: Some("Bash".to_string()),
                 hooks: vec![HookHandlerConfig::Command {
-                    command: format!("python3 {}", script_path.display()),
-                    command_windows: None,
+                    command: format!("python3 \"{}\"", script_path.display()),
+                    command_windows: Some(format!(
+                        r#"powershell -NoProfile -ExecutionPolicy Bypass -File "{}""#,
+                        windows_script_path.display()
+                    )),
                     timeout_sec: Some(10),
                     r#async: false,
                     status_message: None,
@@ -1247,7 +1261,12 @@ print(json.dumps({
 
     assert_eq!(outcome.hook_events.len(), 1);
     assert_eq!(outcome.hook_events[0].run.source, HookSource::Plugin);
-    assert_eq!(outcome.hook_events[0].run.status, HookRunStatus::Completed);
+    assert_eq!(
+        outcome.hook_events[0].run.status,
+        HookRunStatus::Completed,
+        "hook entries: {:#?}",
+        outcome.hook_events[0].run.entries
+    );
     assert_eq!(outcome.hook_events[0].run.entries.len(), 1);
     assert_eq!(
         outcome.hook_events[0].run.entries[0].kind,
