@@ -1172,8 +1172,8 @@ print(json.dumps({
             pre_tool_use: vec![MatcherGroup {
                 matcher: Some("Bash".to_string()),
                 hooks: vec![HookHandlerConfig::Command {
-                    command: format!("python3 \"{}\"", script_path.display()),
-                    command_windows: Some(format!(r#"python "{}""#, script_path.display())),
+                    command: format!("python3 {}", script_path.display()),
+                    command_windows: None,
                     timeout_sec: Some(10),
                     r#async: false,
                     status_message: None,
