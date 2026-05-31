@@ -5703,6 +5703,9 @@
                 "$ref": "#/definitions/v2/SpendControlLimitUpdate"
               }
             ],
+            "default": {
+              "type": "unchanged"
+            },
             "description": "Sparse spend-control update carried alongside the backward-compatible snapshot.\n\n`unchanged` preserves cached metadata when rolling rate-limit headers omit account metadata learned from `account/rateLimits/read`."
           },
           "rateLimits": {
@@ -5710,7 +5713,6 @@
           }
         },
         "required": [
-          "individualLimitUpdate",
           "rateLimits"
         ],
         "title": "AccountRateLimitsUpdatedNotification",
