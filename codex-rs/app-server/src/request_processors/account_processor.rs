@@ -216,6 +216,12 @@ impl AccountRequestProcessor {
         )
     }
 
+    fn sync_active_account_session(&self) -> Result<(), JSONRPCErrorError> {
+        self.account_sessions_store()
+            .sync_active_auth()
+            .map_err(|err| internal_error(format!("failed to sync active account session: {err}")))
+    }
+
     async fn sync_auth_after_account_session_change(&self) {
         self.auth_manager.reload().await;
         self.config_manager.replace_cloud_requirements_loader(
@@ -344,6 +350,8 @@ impl AccountRequestProcessor {
             ));
         }
 
+        self.sync_active_account_session()?;
+
         // Cancel any active login attempt.
         {
             let mut guard = self.active_login.lock().await;
@@ -395,6 +403,8 @@ impl AccountRequestProcessor {
                 "ChatGPT login is disabled. Use API key login instead.",
             ));
         }
+
+        self.sync_active_account_session()?;
 
         let opts = LoginServerOptions {
             open_browser: false,
@@ -640,6 +650,8 @@ impl AccountRequestProcessor {
                 "External ChatGPT auth is disabled. Use API key login instead.",
             ));
         }
+
+        self.sync_active_account_session()?;
 
         // Cancel any active login attempt to avoid persisting managed auth state.
         {

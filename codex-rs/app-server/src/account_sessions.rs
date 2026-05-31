@@ -147,6 +147,7 @@ impl<'a> AccountSessionsStore<'a> {
         &self,
         refresh_workspace_metadata: bool,
     ) -> std::io::Result<AccountSessionsResponse> {
+        self.sync_active_auth()?;
         let mut stored = self.load()?;
         if refresh_workspace_metadata {
             for session in &mut stored.sessions {
@@ -161,6 +162,7 @@ impl<'a> AccountSessionsStore<'a> {
         &self,
         session_id: &str,
     ) -> std::io::Result<AccountSessionsResponse> {
+        self.sync_active_auth()?;
         let mut stored = self.load()?;
         let index = stored
             .sessions
@@ -199,6 +201,7 @@ impl<'a> AccountSessionsStore<'a> {
         session_id: &str,
         account_id: &str,
     ) -> std::io::Result<AccountSessionsResponse> {
+        self.sync_active_auth()?;
         let mut stored = self.load()?;
         let session = stored
             .sessions
@@ -222,6 +225,47 @@ impl<'a> AccountSessionsStore<'a> {
         Ok(Self::response(stored))
     }
 
+    pub(crate) fn sync_active_auth(&self) -> std::io::Result<()> {
+        let Some(mut stored) = self.read()? else {
+            return Ok(());
+        };
+        let Some(active_session_id) = stored.active_session_id.as_ref() else {
+            return Ok(());
+        };
+        let Some(auth_json) =
+            load_auth_dot_json(self.codex_home, self.auth_credentials_store_mode)?
+        else {
+            return Ok(());
+        };
+        let Some(session) = stored
+            .sessions
+            .iter_mut()
+            .find(|session| &session.session_id == active_session_id)
+        else {
+            return Ok(());
+        };
+        if !Self::same_identity(session, &auth_json) {
+            return Ok(());
+        }
+
+        let selected_workspace_account_id = auth_json
+            .tokens
+            .as_ref()
+            .and_then(|tokens| tokens.account_id.clone());
+        if session.auth_json == auth_json
+            && (selected_workspace_account_id.is_none()
+                || session.selected_workspace_account_id == selected_workspace_account_id)
+        {
+            return Ok(());
+        }
+
+        session.auth_json = auth_json;
+        if selected_workspace_account_id.is_some() {
+            session.selected_workspace_account_id = selected_workspace_account_id;
+        }
+        self.save(&stored)
+    }
+
     pub(crate) fn clear(&self) -> std::io::Result<()> {
         match std::fs::remove_file(self.path()) {
             Ok(()) => Ok(()),
@@ -231,10 +275,9 @@ impl<'a> AccountSessionsStore<'a> {
     }
 
     fn load(&self) -> std::io::Result<StoredAccountSessions> {
-        let path = self.path();
-        match std::fs::read_to_string(path) {
-            Ok(payload) => serde_json::from_str(&payload).map_err(std::io::Error::other),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+        match self.read()? {
+            Some(stored) => Ok(stored),
+            None => {
                 let auth_json =
                     load_auth_dot_json(self.codex_home, self.auth_credentials_store_mode)?;
                 let Some(auth_json) = auth_json else {
@@ -248,6 +291,15 @@ impl<'a> AccountSessionsStore<'a> {
                 self.save(&stored)?;
                 Ok(stored)
             }
+        }
+    }
+
+    fn read(&self) -> std::io::Result<Option<StoredAccountSessions>> {
+        match std::fs::read_to_string(self.path()) {
+            Ok(payload) => serde_json::from_str(&payload)
+                .map(Some)
+                .map_err(std::io::Error::other),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(err) => Err(err),
         }
     }
@@ -347,6 +399,23 @@ impl<'a> AccountSessionsStore<'a> {
             .ok()
             .and_then(|payload| serde_json::from_slice(&payload).ok())
             .unwrap_or_default()
+    }
+
+    fn same_identity(session: &StoredAccountSession, auth_json: &AuthDotJson) -> bool {
+        let Some(tokens) = auth_json.tokens.as_ref() else {
+            return false;
+        };
+        let claims = Self::access_token_claims(&tokens.access_token);
+        session
+            .email
+            .as_ref()
+            .zip(claims.profile.email.as_ref())
+            .is_some_and(|(saved, active)| saved == active)
+            || session
+                .user_id
+                .as_ref()
+                .zip(claims.auth.chatgpt_user_id.as_ref())
+                .is_some_and(|(saved, active)| saved == active)
     }
 
     fn workspace_from_account(account: AccountEntry) -> AccountSessionWorkspace {
