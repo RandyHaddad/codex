@@ -570,6 +570,9 @@ pub enum Op {
     /// to generate a summary which will be returned as an AgentMessage event.
     Compact,
 
+    /// Request Codex to import source session context into the current target session.
+    Merge { request: MergeRequest },
+
     /// Set whether the thread remains eligible for memory generation.
     ///
     /// This persists thread-level memory mode metadata without involving the
@@ -600,6 +603,17 @@ pub enum Op {
         /// The raw command string after '!'
         command: String,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct MergeRequest {
+    pub source_thread_id: ThreadId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_rollout_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_instruction: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, JsonSchema)]
@@ -729,6 +743,7 @@ impl Op {
             Self::RefreshMcpServers { .. } => "refresh_mcp_servers",
             Self::ReloadUserConfig => "reload_user_config",
             Self::Compact => "compact",
+            Self::Merge { .. } => "merge",
             Self::SetThreadMemoryMode { .. } => "set_thread_memory_mode",
             Self::ThreadRollback { .. } => "thread_rollback",
             Self::Review { .. } => "review",
@@ -1572,6 +1587,7 @@ pub enum AgentStatus {
 pub enum NonSteerableTurnKind {
     Review,
     Compact,
+    Merge,
 }
 
 /// Codex errors that we expose to clients.
@@ -2733,6 +2749,7 @@ fn multi_agent_version_from_items(
             RolloutItem::SessionMeta(_)
             | RolloutItem::ResponseItem(_)
             | RolloutItem::Compacted(_)
+            | RolloutItem::Merged(_)
             | RolloutItem::EventMsg(_) => None,
         })
     })
@@ -2828,6 +2845,7 @@ pub enum RolloutItem {
     SessionMeta(SessionMetaLine),
     ResponseItem(ResponseItem),
     Compacted(CompactedItem),
+    Merged(MergedItem),
     TurnContext(TurnContextItem),
     EventMsg(EventMsg),
 }
@@ -2837,6 +2855,29 @@ pub struct CompactedItem {
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_history: Option<Vec<ResponseItem>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct MergedItem {
+    pub target_thread_id: ThreadId,
+    pub source_thread_id: ThreadId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_rollout_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_thread_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_cwd: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_instruction: Option<String>,
+    pub imported_at: String,
+    pub replacement_history: Vec<ResponseItem>,
+    pub human_summary: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub conflict_warnings: Vec<String>,
 }
 
 impl From<CompactedItem> for ResponseItem {
@@ -5105,6 +5146,39 @@ mod tests {
             ),
             Some(MultiAgentVersion::V2)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn merged_item_serializes_with_distinct_rollout_type() -> Result<()> {
+        let target_thread_id = ThreadId::from_string("019e80ba-0000-7000-8000-000000000001")?;
+        let source_thread_id = ThreadId::from_string("019e80ba-0000-7000-8000-000000000002")?;
+        let replacement_history = vec![ResponseItem::Message {
+            id: None,
+            role: "developer".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "Merged context from source session.".to_string(),
+            }],
+            phase: None,
+        }];
+        let item = RolloutItem::Merged(MergedItem {
+            target_thread_id,
+            source_thread_id,
+            source_rollout_path: Some(PathBuf::from("/tmp/source.jsonl")),
+            source_thread_name: Some("fix-auth-tests".to_string()),
+            source_cwd: Some(PathBuf::from("/tmp/repo")),
+            source_model: Some("gpt-5.4".to_string()),
+            user_instruction: Some("focus on failing tests".to_string()),
+            imported_at: "2026-06-06T18:00:00Z".to_string(),
+            replacement_history,
+            human_summary: "Source fixed auth test setup.".to_string(),
+            conflict_warnings: vec!["source cwd differs from target cwd".to_string()],
+        });
+
+        let value = serde_json::to_value(&item)?;
+        assert_eq!(value["type"], "merged");
+        assert_eq!(value["payload"]["sourceThreadName"], "fix-auth-tests");
+        assert!(value["payload"]["replacementHistory"].is_array());
         Ok(())
     }
 
