@@ -272,6 +272,23 @@ fn conversation_text_from_item(item: &RolloutItem) -> Option<String> {
                 Some(text)
             }
         }
+        RolloutItem::Merged(merged) => {
+            let text = [
+                merged.source_thread_name.as_deref(),
+                merged.user_instruction.as_deref(),
+                Some(merged.human_summary.as_str()),
+            ]
+            .into_iter()
+            .flatten()
+            .filter(|text| !text.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(text)
+            }
+        }
         RolloutItem::SessionMeta(_)
         | RolloutItem::TurnContext(_)
         | RolloutItem::EventMsg(_)

@@ -883,6 +883,9 @@ impl RolloutRecorder {
                     RolloutItem::Compacted(item) => {
                         items.push(RolloutItem::Compacted(item));
                     }
+                    RolloutItem::Merged(item) => {
+                        items.push(RolloutItem::Merged(item));
+                    }
                     RolloutItem::TurnContext(item) => {
                         items.push(RolloutItem::TurnContext(item));
                     }
@@ -1776,6 +1779,7 @@ async fn resume_candidate_matches_cwd(
             RolloutItem::SessionMeta(_)
             | RolloutItem::ResponseItem(_)
             | RolloutItem::Compacted(_)
+            | RolloutItem::Merged(_)
             | RolloutItem::EventMsg(_) => None,
         })
     {

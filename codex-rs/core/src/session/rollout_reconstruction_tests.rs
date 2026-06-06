@@ -8,6 +8,7 @@ use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::CompactedItem;
 use codex_protocol::protocol::InitialHistory;
 use codex_protocol::protocol::InterAgentCommunication;
+use codex_protocol::protocol::MergedItem;
 use codex_protocol::protocol::ResumedHistory;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
@@ -859,6 +860,44 @@ async fn record_initial_history_resumed_does_not_seed_reference_context_item_aft
 
     assert_eq!(session.previous_turn_settings().await, None);
     assert!(session.reference_context_item().await.is_none());
+}
+
+#[tokio::test]
+async fn reconstruct_history_uses_merged_replacement_history_as_checkpoint() {
+    let (session, turn_context) = make_session_and_context().await;
+    let before = user_message("target asks about auth tests");
+    let merged_marker = user_message("Merged context from source session.");
+    let source_compaction = ResponseItem::Compaction {
+        encrypted_content: "opaque-source-compact".to_string(),
+    };
+    let replacement_history = vec![
+        before.clone(),
+        merged_marker.clone(),
+        source_compaction.clone(),
+    ];
+    let rollout_items = vec![
+        RolloutItem::ResponseItem(before),
+        RolloutItem::Merged(MergedItem {
+            target_thread_id: ThreadId::new(),
+            source_thread_id: ThreadId::new(),
+            source_rollout_path: None,
+            source_thread_name: Some("source".to_string()),
+            source_cwd: None,
+            source_model: None,
+            user_instruction: None,
+            imported_at: "2026-06-06T18:00:00Z".to_string(),
+            replacement_history: replacement_history.clone(),
+            human_summary: "Imported source context.".to_string(),
+            conflict_warnings: Vec::new(),
+        }),
+    ];
+
+    let reconstructed = session
+        .reconstruct_history_from_rollout(&turn_context, &rollout_items)
+        .await;
+
+    assert_eq!(reconstructed.history, replacement_history);
+    assert!(reconstructed.reference_context_item.is_none());
 }
 
 #[tokio::test]

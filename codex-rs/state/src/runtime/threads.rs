@@ -952,6 +952,7 @@ pub(super) fn extract_memory_mode(items: &[RolloutItem]) -> Option<String> {
         RolloutItem::SessionMeta(meta_line) => meta_line.meta.memory_mode.clone(),
         RolloutItem::ResponseItem(_)
         | RolloutItem::Compacted(_)
+        | RolloutItem::Merged(_)
         | RolloutItem::TurnContext(_)
         | RolloutItem::EventMsg(_) => None,
     })

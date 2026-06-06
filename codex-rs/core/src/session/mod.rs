@@ -251,6 +251,7 @@ impl SteerInputError {
                 let turn_kind_label = match turn_kind {
                     NonSteerableTurnKind::Review => "review",
                     NonSteerableTurnKind::Compact => "compact",
+                    NonSteerableTurnKind::Merge => "merge",
                 };
                 ErrorEvent {
                     message: format!("cannot steer a {turn_kind_label} turn"),
@@ -338,6 +339,7 @@ use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::ExecApprovalRequestEvent;
 use codex_protocol::protocol::InitialHistory;
+use codex_protocol::protocol::MergedItem;
 use codex_protocol::protocol::McpServerRefreshConfig;
 use codex_protocol::protocol::ModelRerouteEvent;
 use codex_protocol::protocol::ModelRerouteReason;
@@ -2676,6 +2678,31 @@ impl Session {
         {
             let mut state = self.state.lock().await;
             state.queue_pending_session_start_source(codex_hooks::SessionStartSource::Compact);
+        }
+        self.services.model_client.advance_window_generation();
+    }
+
+    pub(crate) async fn replace_merged_history(
+        &self,
+        items: Vec<ResponseItem>,
+        reference_context_item: Option<TurnContextItem>,
+        merged_item: MergedItem,
+    ) {
+        {
+            let mut state = self.state.lock().await;
+            state.replace_history(items, reference_context_item.clone());
+            state.start_next_auto_compact_window();
+        }
+
+        self.persist_rollout_items(&[RolloutItem::Merged(merged_item)])
+            .await;
+        if let Some(turn_context_item) = reference_context_item {
+            self.persist_rollout_items(&[RolloutItem::TurnContext(turn_context_item)])
+                .await;
+        }
+        {
+            let mut state = self.state.lock().await;
+            state.queue_pending_session_start_source(codex_hooks::SessionStartSource::Merge);
         }
         self.services.model_client.advance_window_generation();
     }

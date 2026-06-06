@@ -127,6 +127,24 @@ impl Session {
                         rollout_suffix = &rollout_items[index + 1..];
                     }
                 }
+                RolloutItem::Merged(merged) => {
+                    let active_segment =
+                        active_segment.get_or_insert_with(ActiveReplaySegment::default);
+                    // A merge checkpoint replaces the model-visible target history. Like
+                    // compaction, it clears any older baseline unless this segment has a newer
+                    // `TurnContextItem`.
+                    if matches!(
+                        active_segment.reference_context_item,
+                        TurnReferenceContextItem::NeverSet
+                    ) {
+                        active_segment.reference_context_item = TurnReferenceContextItem::Cleared;
+                    }
+                    if active_segment.base_replacement_history.is_none() {
+                        active_segment.base_replacement_history =
+                            Some(&merged.replacement_history);
+                        rollout_suffix = &rollout_items[index + 1..];
+                    }
+                }
                 RolloutItem::EventMsg(EventMsg::ThreadRolledBack(rollback)) => {
                     pending_rollback_turns = pending_rollback_turns
                         .saturating_add(usize::try_from(rollback.num_turns).unwrap_or(usize::MAX));
@@ -270,6 +288,9 @@ impl Session {
                         );
                         history.replace(rebuilt);
                     }
+                }
+                RolloutItem::Merged(merged) => {
+                    history.replace(merged.replacement_history.clone());
                 }
                 RolloutItem::EventMsg(EventMsg::ThreadRolledBack(rollback)) => {
                     history.drop_last_n_user_turns(rollback.num_turns);
