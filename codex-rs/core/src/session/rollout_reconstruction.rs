@@ -140,8 +140,7 @@ impl Session {
                         active_segment.reference_context_item = TurnReferenceContextItem::Cleared;
                     }
                     if active_segment.base_replacement_history.is_none() {
-                        active_segment.base_replacement_history =
-                            Some(&merged.replacement_history);
+                        active_segment.base_replacement_history = Some(&merged.replacement_history);
                         rollout_suffix = &rollout_items[index + 1..];
                     }
                 }
@@ -318,5 +317,15 @@ impl Session {
             previous_turn_settings,
             reference_context_item,
         }
+    }
+
+    pub(crate) async fn reconstruct_response_history_from_rollout(
+        &self,
+        turn_context: &TurnContext,
+        rollout_items: &[RolloutItem],
+    ) -> Vec<ResponseItem> {
+        self.reconstruct_history_from_rollout(turn_context, rollout_items)
+            .await
+            .history
     }
 }

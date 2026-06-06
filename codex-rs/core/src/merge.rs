@@ -35,7 +35,11 @@ pub(crate) fn merge_framing_message(meta: &MergeSourceMetadata) -> ResponseItem 
         text.push_str("\nSource transcript: ");
         text.push_str(&source_rollout_path.display().to_string());
     }
-    if let Some(instruction) = meta.user_instruction.as_deref().filter(|s| !s.trim().is_empty()) {
+    if let Some(instruction) = meta
+        .user_instruction
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
         text.push_str("\n\nUser merge instruction: ");
         text.push_str(instruction.trim());
     }

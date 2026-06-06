@@ -339,8 +339,8 @@ use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::ExecApprovalRequestEvent;
 use codex_protocol::protocol::InitialHistory;
-use codex_protocol::protocol::MergedItem;
 use codex_protocol::protocol::McpServerRefreshConfig;
+use codex_protocol::protocol::MergedItem;
 use codex_protocol::protocol::ModelRerouteEvent;
 use codex_protocol::protocol::ModelRerouteReason;
 use codex_protocol::protocol::ModelVerification;
@@ -3291,6 +3291,11 @@ impl Session {
             crate::state::TaskKind::Compact => {
                 return Err(SteerInputError::ActiveTurnNotSteerable {
                     turn_kind: NonSteerableTurnKind::Compact,
+                });
+            }
+            crate::state::TaskKind::Merge => {
+                return Err(SteerInputError::ActiveTurnNotSteerable {
+                    turn_kind: NonSteerableTurnKind::Merge,
                 });
             }
         }

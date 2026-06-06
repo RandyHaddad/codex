@@ -22,6 +22,7 @@ use crate::realtime_conversation::prefix_realtime_v2_text;
 use crate::review_prompts::resolve_review_request;
 use crate::session::spawn_review_thread;
 use crate::tasks::CompactTask;
+use crate::tasks::MergeTask;
 use crate::tasks::UserShellCommandMode;
 use crate::tasks::UserShellCommandTask;
 use crate::tasks::execute_user_shell_command;
@@ -491,6 +492,21 @@ pub async fn compact(sess: &Arc<Session>, sub_id: String) {
         .await;
 }
 
+pub async fn merge(
+    sess: &Arc<Session>,
+    sub_id: String,
+    request: codex_protocol::protocol::MergeRequest,
+) {
+    let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+
+    sess.spawn_task(
+        Arc::clone(&turn_context),
+        Vec::new(),
+        MergeTask::new(request),
+    )
+    .await;
+}
+
 pub async fn thread_rollback(sess: &Arc<Session>, sub_id: String, num_turns: u32) {
     if num_turns == 0 {
         sess.send_event_raw(Event {
@@ -833,6 +849,10 @@ pub(super) async fn submission_loop(
                 }
                 Op::Compact => {
                     compact(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::Merge { request } => {
+                    merge(&sess, sub.id.clone(), request).await;
                     false
                 }
                 Op::ThreadRollback { num_turns } => {
