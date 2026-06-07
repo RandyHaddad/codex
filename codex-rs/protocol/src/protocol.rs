@@ -1349,6 +1349,8 @@ pub enum HookEventName {
     PostToolUse,
     PreCompact,
     PostCompact,
+    PreMerge,
+    PostMerge,
     SessionStart,
     UserPromptSubmit,
     SubagentStart,

@@ -400,6 +400,70 @@ pub(crate) enum PostCompactHookOutcome {
     Stopped,
 }
 
+pub(crate) async fn run_pre_merge_hooks(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+) -> PreMergeHookOutcome {
+    let request = codex_hooks::PreMergeRequest {
+        session_id: sess.session_id().into(),
+        turn_id: turn_context.sub_id.clone(),
+        subagent: thread_spawn_subagent_hook_context(sess, turn_context),
+        #[allow(deprecated)]
+        cwd: turn_context.cwd.clone(),
+        transcript_path: sess.hook_transcript_path().await,
+        model: turn_context.model_info.slug.clone(),
+        trigger: "manual".to_string(),
+    };
+    let preview_runs = sess.hooks().preview_pre_merge(&request);
+    emit_hook_started_events(sess, turn_context, preview_runs).await;
+
+    let outcome = sess.hooks().run_pre_merge(request).await;
+    emit_hook_completed_events(sess, turn_context, outcome.hook_events).await;
+    if outcome.should_stop {
+        PreMergeHookOutcome::Stopped {
+            reason: outcome.stop_reason,
+        }
+    } else {
+        PreMergeHookOutcome::Continue
+    }
+}
+
+pub(crate) enum PreMergeHookOutcome {
+    Continue,
+    Stopped { reason: Option<String> },
+}
+
+pub(crate) enum PostMergeHookOutcome {
+    Continue,
+    Stopped,
+}
+
+pub(crate) async fn run_post_merge_hooks(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+) -> PostMergeHookOutcome {
+    let request = codex_hooks::PostMergeRequest {
+        session_id: sess.session_id().into(),
+        turn_id: turn_context.sub_id.clone(),
+        subagent: thread_spawn_subagent_hook_context(sess, turn_context),
+        #[allow(deprecated)]
+        cwd: turn_context.cwd.clone(),
+        transcript_path: sess.hook_transcript_path().await,
+        model: turn_context.model_info.slug.clone(),
+        trigger: "manual".to_string(),
+    };
+    let preview_runs = sess.hooks().preview_post_merge(&request);
+    emit_hook_started_events(sess, turn_context, preview_runs).await;
+
+    let outcome = sess.hooks().run_post_merge(request).await;
+    emit_hook_completed_events(sess, turn_context, outcome.hook_events).await;
+    if outcome.should_stop {
+        PostMergeHookOutcome::Stopped
+    } else {
+        PostMergeHookOutcome::Continue
+    }
+}
+
 pub(crate) async fn run_post_compact_hooks(
     sess: &Arc<Session>,
     turn_context: &Arc<TurnContext>,
@@ -690,6 +754,8 @@ fn hook_run_metric_tags(run: &HookRunSummary) -> [(&'static str, &'static str); 
         HookEventName::PostToolUse => "PostToolUse",
         HookEventName::PreCompact => "PreCompact",
         HookEventName::PostCompact => "PostCompact",
+        HookEventName::PreMerge => "PreMerge",
+        HookEventName::PostMerge => "PostMerge",
         HookEventName::SessionStart => "SessionStart",
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",

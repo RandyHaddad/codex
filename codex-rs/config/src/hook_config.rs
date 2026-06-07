@@ -41,6 +41,10 @@ pub struct HookEventsToml {
     pub pre_compact: Vec<MatcherGroup>,
     #[serde(rename = "PostCompact", default)]
     pub post_compact: Vec<MatcherGroup>,
+    #[serde(rename = "PreMerge", default)]
+    pub pre_merge: Vec<MatcherGroup>,
+    #[serde(rename = "PostMerge", default)]
+    pub post_merge: Vec<MatcherGroup>,
     #[serde(rename = "SessionStart", default)]
     pub session_start: Vec<MatcherGroup>,
     #[serde(rename = "UserPromptSubmit", default)]
@@ -61,6 +65,8 @@ impl HookEventsToml {
             post_tool_use,
             pre_compact,
             post_compact,
+            pre_merge,
+            post_merge,
             session_start,
             user_prompt_submit,
             subagent_start,
@@ -72,6 +78,8 @@ impl HookEventsToml {
             && post_tool_use.is_empty()
             && pre_compact.is_empty()
             && post_compact.is_empty()
+            && pre_merge.is_empty()
+            && post_merge.is_empty()
             && session_start.is_empty()
             && user_prompt_submit.is_empty()
             && subagent_start.is_empty()
@@ -86,6 +94,8 @@ impl HookEventsToml {
             post_tool_use,
             pre_compact,
             post_compact,
+            pre_merge,
+            post_merge,
             session_start,
             user_prompt_submit,
             subagent_start,
@@ -98,6 +108,8 @@ impl HookEventsToml {
             post_tool_use,
             pre_compact,
             post_compact,
+            pre_merge,
+            post_merge,
             session_start,
             user_prompt_submit,
             subagent_start,
@@ -110,13 +122,15 @@ impl HookEventsToml {
         .sum()
     }
 
-    pub fn into_matcher_groups(self) -> [(HookEventName, Vec<MatcherGroup>); 10] {
+    pub fn into_matcher_groups(self) -> [(HookEventName, Vec<MatcherGroup>); 12] {
         [
             (HookEventName::PreToolUse, self.pre_tool_use),
             (HookEventName::PermissionRequest, self.permission_request),
             (HookEventName::PostToolUse, self.post_tool_use),
             (HookEventName::PreCompact, self.pre_compact),
             (HookEventName::PostCompact, self.post_compact),
+            (HookEventName::PreMerge, self.pre_merge),
+            (HookEventName::PostMerge, self.post_merge),
             (HookEventName::SessionStart, self.session_start),
             (HookEventName::UserPromptSubmit, self.user_prompt_submit),
             (HookEventName::SubagentStart, self.subagent_start),

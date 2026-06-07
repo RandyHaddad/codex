@@ -79,8 +79,10 @@ use crate::schema::PermissionRequestBehaviorWire;
 use crate::schema::PermissionRequestCommandOutputWire;
 use crate::schema::PermissionRequestDecisionWire;
 use crate::schema::PostCompactCommandOutputWire;
+use crate::schema::PostMergeCommandOutputWire;
 use crate::schema::PostToolUseCommandOutputWire;
 use crate::schema::PreCompactCommandOutputWire;
+use crate::schema::PreMergeCommandOutputWire;
 use crate::schema::PreToolUseCommandOutputWire;
 use crate::schema::PreToolUseDecisionWire;
 use crate::schema::PreToolUsePermissionDecisionWire;
@@ -249,6 +251,24 @@ pub(crate) fn parse_pre_compact(stdout: &str) -> Option<PreCompactOutput> {
 
 pub(crate) fn parse_post_compact(stdout: &str) -> Option<StatelessHookOutput> {
     let wire: PostCompactCommandOutputWire = parse_json(stdout)?;
+    let universal = UniversalOutput::from(wire.universal);
+    Some(StatelessHookOutput {
+        universal,
+        invalid_reason: None,
+    })
+}
+
+pub(crate) fn parse_pre_merge(stdout: &str) -> Option<PreCompactOutput> {
+    let wire: PreMergeCommandOutputWire = parse_json(stdout)?;
+    let universal = UniversalOutput::from(wire.universal);
+    Some(PreCompactOutput {
+        universal,
+        invalid_reason: None,
+    })
+}
+
+pub(crate) fn parse_post_merge(stdout: &str) -> Option<StatelessHookOutput> {
+    let wire: PostMergeCommandOutputWire = parse_json(stdout)?;
     let universal = UniversalOutput::from(wire.universal);
     Some(StatelessHookOutput {
         universal,

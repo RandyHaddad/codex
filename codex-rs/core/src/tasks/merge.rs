@@ -8,6 +8,10 @@ use crate::compact::InitialContextInjection;
 use crate::compact_remote::process_compacted_history;
 use crate::compact_remote_v2::build_v2_compacted_history;
 use crate::compact_remote_v2::run_remote_compaction_request_v2;
+use crate::hook_runtime::PostMergeHookOutcome;
+use crate::hook_runtime::PreMergeHookOutcome;
+use crate::hook_runtime::run_post_merge_hooks;
+use crate::hook_runtime::run_pre_merge_hooks;
 use crate::merge::MergeSourceMetadata;
 use crate::merge::build_target_replacement_history;
 use crate::merge::merge_framing_message;
@@ -104,6 +108,16 @@ async fn run_merge_task(
 
     emit_merge_metric(&sess.services.session_telemetry, "remote_v2");
 
+    match run_pre_merge_hooks(&sess, &turn_context).await {
+        PreMergeHookOutcome::Continue => {}
+        PreMergeHookOutcome::Stopped { reason } => {
+            anyhow::bail!(
+                "{}",
+                reason.unwrap_or_else(|| "PreMerge hook stopped execution".to_string())
+            );
+        }
+    }
+
     let source = read_merge_source(sess.as_ref(), &request).await?;
     let source_history = source
         .history
@@ -154,6 +168,9 @@ async fn run_merge_task(
     sess.replace_merged_history(replacement_history, None, merged_item)
         .await;
     sess.recompute_token_usage(turn_context.as_ref()).await;
+    if let PostMergeHookOutcome::Stopped = run_post_merge_hooks(&sess, &turn_context).await {
+        anyhow::bail!("PostMerge hook stopped execution");
+    }
     Ok(())
 }
 
