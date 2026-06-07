@@ -546,6 +546,16 @@ impl ThreadRequestProcessor {
             .map(|response| Some(response.into()))
     }
 
+    pub(crate) async fn thread_merge_start(
+        &self,
+        request_id: &ConnectionRequestId,
+        params: ThreadMergeStartParams,
+    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
+        self.thread_merge_start_inner(request_id, params)
+            .await
+            .map(|response| Some(response.into()))
+    }
+
     pub(crate) async fn thread_background_terminals_clean(
         &self,
         request_id: &ConnectionRequestId,
@@ -1685,6 +1695,37 @@ impl ThreadRequestProcessor {
             .await
             .map_err(|err| internal_error(format!("failed to start compaction: {err}")))?;
         Ok(ThreadCompactStartResponse {})
+    }
+
+    async fn thread_merge_start_inner(
+        &self,
+        request_id: &ConnectionRequestId,
+        params: ThreadMergeStartParams,
+    ) -> Result<ThreadMergeStartResponse, JSONRPCErrorError> {
+        let ThreadMergeStartParams {
+            thread_id,
+            source_thread_id,
+            source_rollout_path,
+            user_instruction,
+        } = params;
+
+        let (_, thread) = self.load_thread(&thread_id).await?;
+        let source_thread_id = codex_protocol::ThreadId::from_string(&source_thread_id)
+            .map_err(|_| invalid_params("sourceThreadId must be a thread id"))?;
+        self.submit_core_op(
+            request_id,
+            thread.as_ref(),
+            Op::Merge {
+                request: codex_protocol::protocol::MergeRequest {
+                    source_thread_id,
+                    source_rollout_path,
+                    user_instruction,
+                },
+            },
+        )
+        .await
+        .map_err(|err| internal_error(format!("failed to start merge: {err}")))?;
+        Ok(ThreadMergeStartResponse {})
     }
 
     async fn thread_background_terminals_clean_inner(

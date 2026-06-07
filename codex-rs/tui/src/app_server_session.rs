@@ -71,6 +71,8 @@ use codex_app_server_protocol::ThreadLoadedListResponse;
 use codex_app_server_protocol::ThreadMemoryMode;
 use codex_app_server_protocol::ThreadMemoryModeSetParams;
 use codex_app_server_protocol::ThreadMemoryModeSetResponse;
+use codex_app_server_protocol::ThreadMergeStartParams;
+use codex_app_server_protocol::ThreadMergeStartResponse;
 use codex_app_server_protocol::ThreadMetadataGitInfoUpdateParams;
 use codex_app_server_protocol::ThreadMetadataUpdateParams;
 use codex_app_server_protocol::ThreadMetadataUpdateResponse;
@@ -925,6 +927,30 @@ impl AppServerSession {
             })
             .await
             .wrap_err("thread/compact/start failed in TUI")?;
+        Ok(())
+    }
+
+    pub(crate) async fn thread_merge_start(
+        &mut self,
+        thread_id: ThreadId,
+        source_thread_id: ThreadId,
+        source_rollout_path: Option<PathBuf>,
+        user_instruction: Option<String>,
+    ) -> Result<()> {
+        let request_id = self.next_request_id();
+        let _: ThreadMergeStartResponse = self
+            .client
+            .request_typed(ClientRequest::ThreadMergeStart {
+                request_id,
+                params: ThreadMergeStartParams {
+                    thread_id: thread_id.to_string(),
+                    source_thread_id: source_thread_id.to_string(),
+                    source_rollout_path,
+                    user_instruction,
+                },
+            })
+            .await
+            .wrap_err("thread/merge/start failed in TUI")?;
         Ok(())
     }
 

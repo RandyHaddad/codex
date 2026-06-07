@@ -785,6 +785,10 @@ impl TurnRequestProcessor {
                                 "cannot steer a compact turn".to_string(),
                                 TurnSteerRequestError::NonSteerableCompact,
                             ),
+                            codex_protocol::protocol::NonSteerableTurnKind::Merge => (
+                                "cannot steer a merge turn".to_string(),
+                                TurnSteerRequestError::NonSteerableMerge,
+                            ),
                         };
                         let error = TurnError {
                             message: message.clone(),
