@@ -824,6 +824,27 @@ async fn load_transcript_preview(
                 speaker: TranscriptPreviewSpeaker::Assistant,
                 text: parse_assistant_markdown(text, cwd).visible_markdown,
             }),
+            ThreadItem::MergedContext {
+                source_thread_id,
+                source_thread_name,
+                human_summary,
+                ..
+            } => {
+                let source = source_thread_name
+                    .as_deref()
+                    .filter(|name| !name.trim().is_empty())
+                    .unwrap_or(source_thread_id);
+                let summary = human_summary.trim();
+                let text = if summary.is_empty() {
+                    format!("Merged context from {source}")
+                } else {
+                    format!("Merged context from {source}: {summary}")
+                };
+                Some(TranscriptPreviewLine {
+                    speaker: TranscriptPreviewSpeaker::Assistant,
+                    text,
+                })
+            }
             _ => None,
         })
         .flat_map(|line| {

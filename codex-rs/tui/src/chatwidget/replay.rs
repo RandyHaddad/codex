@@ -168,6 +168,23 @@ impl ChatWidget {
             ThreadItem::ContextCompaction { .. } => {
                 self.add_info_message("Context compacted".to_string(), /*hint*/ None);
             }
+            ThreadItem::MergedContext {
+                source_thread_id,
+                source_thread_name,
+                human_summary,
+                conflict_warnings,
+                ..
+            } => {
+                let source = source_thread_name
+                    .as_deref()
+                    .filter(|name| !name.trim().is_empty())
+                    .unwrap_or(source_thread_id.as_str());
+                let hint = (!human_summary.trim().is_empty()).then(|| human_summary.clone());
+                self.add_info_message(format!("Merged context from {source}"), hint);
+                for warning in conflict_warnings {
+                    self.add_info_message(format!("Merge warning: {warning}"), /*hint*/ None);
+                }
+            }
             ThreadItem::HookPrompt { .. } => {}
             ThreadItem::CollabAgentToolCall {
                 id,
