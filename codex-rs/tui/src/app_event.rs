@@ -209,6 +209,15 @@ pub(crate) enum AppEvent {
     /// Resume a thread by UUID or thread name inside the running TUI session.
     ResumeSessionByIdOrName(String),
 
+    /// Open the merge source picker inside the running TUI session.
+    OpenMergePicker,
+
+    /// Merge a source thread by UUID or thread name into the running TUI session.
+    MergeSessionByIdOrName {
+        id_or_name: String,
+        user_instruction: Option<String>,
+    },
+
     /// Archive the current active main thread and exit after it succeeds.
     ArchiveCurrentThread,
 

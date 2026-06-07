@@ -32,6 +32,7 @@ pub enum SlashCommand {
     New,
     Archive,
     Resume,
+    Merge,
     Fork,
     App,
     Init,
@@ -88,6 +89,7 @@ impl SlashCommand {
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
+            SlashCommand::Merge => "merge context from another saved chat",
             SlashCommand::Archive => "archive this session and exit",
             SlashCommand::Clear => "clear the terminal and start a new chat",
             SlashCommand::Fork => "fork the current chat",
@@ -163,6 +165,7 @@ impl SlashCommand {
                 | SlashCommand::Side
                 | SlashCommand::Btw
                 | SlashCommand::Resume
+                | SlashCommand::Merge
                 | SlashCommand::SandboxReadRoot
         )
     }
@@ -186,6 +189,7 @@ impl SlashCommand {
             SlashCommand::New
             | SlashCommand::Archive
             | SlashCommand::Resume
+            | SlashCommand::Merge
             | SlashCommand::Fork
             | SlashCommand::Init
             | SlashCommand::Compact

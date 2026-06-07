@@ -104,7 +104,7 @@ impl App {
                         )
                         .await;
                     }
-                    SessionSelection::Fork(_) => {}
+                    SessionSelection::Fork(_) | SessionSelection::Merge(_) => {}
                 }
 
                 // Leaving alt-screen may blank the inline viewport; force a redraw either way.
@@ -116,6 +116,62 @@ impl App {
                         return self
                             .resume_target_session(tui, app_server, target_session)
                             .await;
+                    }
+                    None => {
+                        self.chat_widget.add_error_message(format!(
+                            "No saved chat found matching '{id_or_name}'."
+                        ));
+                    }
+                }
+            }
+            AppEvent::OpenMergePicker => {
+                let picker_app_server = match crate::start_app_server_for_picker(
+                    &self.config,
+                    &self.app_server_target,
+                    self.state_db.clone(),
+                    self.environment_manager.clone(),
+                )
+                .await
+                {
+                    Ok(app_server) => app_server,
+                    Err(err) => {
+                        self.chat_widget.add_error_message(format!(
+                            "Failed to start TUI session picker: {err}"
+                        ));
+                        return Ok(AppRunControl::Continue);
+                    }
+                };
+                match crate::resume_picker::run_merge_picker_from_existing_session_with_app_server(
+                    tui,
+                    &self.config,
+                    /*show_all*/ false,
+                    /*include_non_interactive*/ false,
+                    picker_app_server,
+                )
+                .await?
+                {
+                    SessionSelection::Merge(source_session) => {
+                        self.start_merge_from_source(source_session, None);
+                    }
+                    SessionSelection::Exit | SessionSelection::StartFresh => {
+                        self.refresh_in_memory_config_from_disk_best_effort(
+                            "closing the session picker",
+                        )
+                        .await;
+                    }
+                    SessionSelection::Resume(_) | SessionSelection::Fork(_) => {}
+                }
+
+                // Leaving alt-screen may blank the inline viewport; force a redraw either way.
+                tui.frame_requester().schedule_frame();
+            }
+            AppEvent::MergeSessionByIdOrName {
+                id_or_name,
+                user_instruction,
+            } => {
+                match crate::lookup_session_target_with_app_server(app_server, &id_or_name).await? {
+                    Some(source_session) => {
+                        self.start_merge_from_source(source_session, user_instruction);
                     }
                     None => {
                         self.chat_widget.add_error_message(format!(
@@ -2217,6 +2273,19 @@ impl App {
                 AppRunControl::Exit(ExitReason::UserRequested)
             }
         }
+    }
+
+    fn start_merge_from_source(
+        &mut self,
+        source_session: crate::resume_picker::SessionTarget,
+        user_instruction: Option<String>,
+    ) {
+        self.chat_widget.clear_token_usage();
+        self.chat_widget.submit_op(AppCommand::merge(
+            source_session.thread_id,
+            source_session.path,
+            user_instruction,
+        ));
     }
 
     pub(super) async fn archive_current_thread(

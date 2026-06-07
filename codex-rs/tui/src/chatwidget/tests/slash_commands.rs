@@ -1883,6 +1883,15 @@ async fn slash_resume_opens_picker() {
 }
 
 #[tokio::test]
+async fn slash_merge_opens_picker() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+
+    chat.dispatch_command(SlashCommand::Merge);
+
+    assert_matches!(rx.try_recv(), Ok(AppEvent::OpenMergePicker));
+}
+
+#[tokio::test]
 async fn slash_archive_confirmation_requests_current_thread_archive() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
 
@@ -1914,6 +1923,28 @@ async fn slash_resume_with_arg_requests_named_session() {
     assert_matches!(
         rx.try_recv(),
         Ok(AppEvent::ResumeSessionByIdOrName(id_or_name)) if id_or_name == "my-saved-thread"
+    );
+    assert_matches!(op_rx.try_recv(), Err(TryRecvError::Empty));
+}
+
+#[tokio::test]
+async fn slash_merge_with_arg_requests_named_source_session() {
+    let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+
+    chat.bottom_pane.set_composer_text(
+        "/merge source-thread focus on test failures".to_string(),
+        Vec::new(),
+        Vec::new(),
+    );
+    chat.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+    assert_matches!(
+        rx.try_recv(),
+        Ok(AppEvent::MergeSessionByIdOrName {
+            id_or_name,
+            user_instruction,
+        }) if id_or_name == "source-thread"
+            && user_instruction.as_deref() == Some("focus on test failures")
     );
     assert_matches!(op_rx.try_recv(), Err(TryRecvError::Empty));
 }

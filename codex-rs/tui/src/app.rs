@@ -971,6 +971,9 @@ impl App {
                 };
                 (ChatWidget::new_with_app_event(init), Some(forked))
             }
+            SessionSelection::Merge(_) => {
+                unreachable!("merge picker is only available from an existing session")
+            }
         };
         chat_widget.remote_connection = remote_connection;
         let thread_and_widget_ms = thread_and_widget_started_at.elapsed().as_millis();

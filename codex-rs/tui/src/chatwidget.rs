@@ -1783,7 +1783,7 @@ impl ChatWidget {
     {
         let op: AppCommand = op.into();
         self.prepare_local_op_submission(&op);
-        if op.is_review() && !self.bottom_pane.is_task_running() {
+        if (op.is_review() || op.is_merge()) && !self.bottom_pane.is_task_running() {
             self.bottom_pane.set_task_running(/*running*/ true);
         }
         match &self.codex_op_target {

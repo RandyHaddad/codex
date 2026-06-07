@@ -100,6 +100,7 @@ pub enum SessionSelection {
     StartFresh,
     Resume(SessionTarget),
     Fork(SessionTarget),
+    Merge(SessionTarget),
     Exit,
 }
 
@@ -107,6 +108,7 @@ pub enum SessionSelection {
 pub enum SessionPickerAction {
     Resume,
     Fork,
+    Merge,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -120,6 +122,7 @@ impl SessionPickerAction {
         match self {
             SessionPickerAction::Resume => "Resume a previous session",
             SessionPickerAction::Fork => "Fork a previous session",
+            SessionPickerAction::Merge => "Merge a source session",
         }
     }
 
@@ -127,6 +130,7 @@ impl SessionPickerAction {
         match self {
             SessionPickerAction::Resume => "resume",
             SessionPickerAction::Fork => "fork",
+            SessionPickerAction::Merge => "merge",
         }
     }
 
@@ -135,6 +139,7 @@ impl SessionPickerAction {
         match self {
             SessionPickerAction::Resume => SessionSelection::Resume(target_session),
             SessionPickerAction::Fork => SessionSelection::Fork(target_session),
+            SessionPickerAction::Merge => SessionSelection::Merge(target_session),
         }
     }
 }
@@ -317,6 +322,7 @@ pub async fn run_resume_picker_with_app_server(
         include_non_interactive,
         app_server,
         SessionPickerLaunchContext::Startup,
+        SessionPickerAction::Resume,
     )
     .await
 }
@@ -335,6 +341,26 @@ pub async fn run_resume_picker_from_existing_session_with_app_server(
         include_non_interactive,
         app_server,
         SessionPickerLaunchContext::ExistingSession,
+        SessionPickerAction::Resume,
+    )
+    .await
+}
+
+pub async fn run_merge_picker_from_existing_session_with_app_server(
+    tui: &mut Tui,
+    config: &Config,
+    show_all: bool,
+    include_non_interactive: bool,
+    app_server: AppServerSession,
+) -> Result<SessionSelection> {
+    run_resume_picker_with_launch_context(
+        tui,
+        config,
+        show_all,
+        include_non_interactive,
+        app_server,
+        SessionPickerLaunchContext::ExistingSession,
+        SessionPickerAction::Merge,
     )
     .await
 }
@@ -346,6 +372,7 @@ async fn run_resume_picker_with_launch_context(
     include_non_interactive: bool,
     app_server: AppServerSession,
     launch_context: SessionPickerLaunchContext,
+    action: SessionPickerAction,
 ) -> Result<SessionSelection> {
     let (bg_tx, bg_rx) = mpsc::unbounded_channel();
     let uses_remote_workspace = app_server.uses_remote_workspace();
@@ -362,7 +389,7 @@ async fn run_resume_picker_with_launch_context(
         show_all,
         filter_cwd: cwd_filter,
         local_filter_cwd,
-        action: SessionPickerAction::Resume,
+        action,
         launch_context,
         provider_filter,
         initial_density: SessionListDensity::from(config.tui_session_picker_view),
