@@ -288,6 +288,12 @@
           },
           "type": "array"
         },
+        "PostMerge": {
+          "items": {
+            "$ref": "#/definitions/ConfiguredHookMatcherGroup"
+          },
+          "type": "array"
+        },
         "PostToolUse": {
           "items": {
             "$ref": "#/definitions/ConfiguredHookMatcherGroup"
@@ -295,6 +301,12 @@
           "type": "array"
         },
         "PreCompact": {
+          "items": {
+            "$ref": "#/definitions/ConfiguredHookMatcherGroup"
+          },
+          "type": "array"
+        },
+        "PreMerge": {
           "items": {
             "$ref": "#/definitions/ConfiguredHookMatcherGroup"
           },
@@ -352,8 +364,10 @@
       "required": [
         "PermissionRequest",
         "PostCompact",
+        "PostMerge",
         "PostToolUse",
         "PreCompact",
+        "PreMerge",
         "PreToolUse",
         "SessionStart",
         "Stop",

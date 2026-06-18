@@ -563,7 +563,8 @@
     "NonSteerableTurnKind": {
       "enum": [
         "review",
-        "compact"
+        "compact",
+        "merge"
       ],
       "type": "string"
     },
@@ -1677,6 +1678,74 @@
             "type"
           ],
           "title": "ContextCompactionThreadItem",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "conflictWarnings": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "humanSummary": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "importedAt": {
+              "type": "string"
+            },
+            "sourceCwd": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sourceModel": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sourceRolloutPath": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sourceThreadId": {
+              "type": "string"
+            },
+            "sourceThreadName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "mergedContext"
+              ],
+              "title": "MergedContextThreadItemType",
+              "type": "string"
+            },
+            "userInstruction": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "humanSummary",
+            "id",
+            "importedAt",
+            "sourceThreadId",
+            "type"
+          ],
+          "title": "MergedContextThreadItem",
           "type": "object"
         }
       ]

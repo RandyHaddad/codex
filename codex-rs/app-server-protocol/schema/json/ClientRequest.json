@@ -3804,6 +3804,33 @@
       ],
       "type": "string"
     },
+    "ThreadMergeStartParams": {
+      "properties": {
+        "sourceRolloutPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceThreadId": {
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "userInstruction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "sourceThreadId",
+        "threadId"
+      ],
+      "type": "object"
+    },
     "ThreadMetadataGitInfoUpdateParams": {
       "properties": {
         "branch": {
@@ -5012,6 +5039,30 @@
         "params"
       ],
       "title": "Thread/compact/startRequest",
+      "type": "object"
+    },
+    {
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "enum": [
+            "thread/merge/start"
+          ],
+          "title": "Thread/merge/startRequestMethod",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/definitions/ThreadMergeStartParams"
+        }
+      },
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "title": "Thread/merge/startRequest",
       "type": "object"
     },
     {
