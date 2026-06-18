@@ -20,8 +20,10 @@ use tracing::Span;
 use tracing::field;
 use tracing::info_span;
 use tracing::trace;
+use tracing::trace_span;
 use tracing::warn;
 
+use crate::codex_thread::BackgroundTerminalInfo;
 use crate::config::Config;
 use crate::context::ContextualUserFragment;
 use crate::hook_runtime::inspect_pending_input;
@@ -110,6 +112,7 @@ pub(crate) fn interrupted_turn_history_marker(
                     text: marker.render(),
                 }],
                 phase: None,
+                metadata: None,
             })
         }
     }
@@ -366,6 +369,10 @@ impl Session {
         let mut active = self.active_turn.lock().await;
         let turn = active.get_or_insert_with(ActiveTurn::default);
         debug_assert!(turn.task.is_none());
+        let agent_execution_guard = self.services.agent_control.execution_guard(
+            turn_context.multi_agent_version,
+            &turn_context.session_source,
+        );
         let done_clone = Arc::clone(&done);
         let session_ctx = Arc::new(SessionTaskContext::new(
             Arc::clone(self),
@@ -402,6 +409,7 @@ impl Session {
                         task_input,
                         task_cancellation_token.child_token(),
                     )
+                    .instrument(trace_span!("session_task.run"))
                     .await;
                 let sess = session_ctx.clone_session();
                 if let Err(err) = sess.flush_rollout().await {
@@ -437,6 +445,7 @@ impl Session {
             cancellation_token,
             turn_context: Arc::clone(&turn_context),
             turn_extension_data,
+            _agent_execution_guard: agent_execution_guard,
             _timer: timer,
         };
         turn.task = Some(running_task);
@@ -720,7 +729,7 @@ impl Session {
         }
         emit_turn_memory_metric(
             &self.services.session_telemetry,
-            turn_context.features.enabled(Feature::MemoryTool),
+            turn_context.config.features.enabled(Feature::MemoryTool),
             turn_context.config.memories.use_memories,
             turn_had_memory_citation,
         );
@@ -782,6 +791,17 @@ impl Session {
             .unified_exec_manager
             .terminate_all_processes()
             .await;
+    }
+
+    pub(crate) async fn list_background_terminals(&self) -> Vec<BackgroundTerminalInfo> {
+        self.services.unified_exec_manager.list_processes().await
+    }
+
+    pub(crate) async fn terminate_background_terminal(&self, process_id: i32) -> bool {
+        self.services
+            .unified_exec_manager
+            .terminate_process(process_id)
+            .await
     }
 
     async fn handle_task_abort(self: &Arc<Self>, task: RunningTask, reason: TurnAbortReason) {

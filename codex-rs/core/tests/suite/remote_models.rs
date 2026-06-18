@@ -1,5 +1,4 @@
 #![cfg(not(target_os = "windows"))]
-#![allow(clippy::expect_used)]
 use anyhow::Result;
 use codex_login::CodexAuth;
 use codex_model_provider_info::ModelProviderInfo;
@@ -37,6 +36,7 @@ use core_test_support::responses::sse;
 use core_test_support::skip_if_no_network;
 use core_test_support::skip_if_sandbox;
 use core_test_support::test_codex::TestCodex;
+use core_test_support::test_codex::local_selections;
 use core_test_support::test_codex::test_codex;
 use core_test_support::test_codex::turn_permission_fields;
 use core_test_support::wait_for_event;
@@ -158,7 +158,6 @@ async fn remote_models_config_context_window_override_clamps_to_max_context_wind
                 text: "check context window".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
@@ -226,7 +225,6 @@ async fn remote_models_config_override_above_max_uses_max_context_window() -> Re
                 text: "check context window".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
@@ -293,7 +291,6 @@ async fn remote_models_use_context_window_when_config_override_is_absent() -> Re
                 text: "check context window".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
@@ -374,7 +371,6 @@ async fn remote_models_long_model_slug_is_sent_with_custom_reasoning() -> Result
                 text: "check model slug".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
@@ -425,7 +421,6 @@ async fn namespaced_model_slug_uses_catalog_metadata_without_fallback_warning() 
                 text: "check namespaced model metadata".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
@@ -503,6 +498,7 @@ async fn remote_models_remote_model_uses_unified_exec() -> Result<()> {
         context_window: Some(272_000),
         max_context_window: None,
         auto_compact_token_limit: None,
+        comp_hash: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };
@@ -583,12 +579,11 @@ async fn remote_models_remote_model_uses_unified_exec() -> Result<()> {
                 text: "run call".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -756,6 +751,7 @@ async fn remote_models_apply_remote_base_instructions() -> Result<()> {
         context_window: Some(272_000),
         max_context_window: None,
         auto_compact_token_limit: None,
+        comp_hash: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };
@@ -811,12 +807,11 @@ async fn remote_models_apply_remote_base_instructions() -> Result<()> {
                 text: "hello remote".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -1170,8 +1165,7 @@ async fn wait_for_model_available(manager: &SharedModelsManager, slug: &str) -> 
 }
 
 fn bundled_model_slug() -> String {
-    let response = bundled_models_response()
-        .unwrap_or_else(|err| panic!("bundled models.json should parse: {err}"));
+    let response = bundled_models_response().expect("bundled models.json should parse");
     response
         .models
         .first()
@@ -1243,6 +1237,7 @@ fn test_remote_model_with_policy(
         context_window: Some(272_000),
         max_context_window: None,
         auto_compact_token_limit: None,
+        comp_hash: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     }

@@ -68,6 +68,7 @@ pub fn builder_from_items(
     if let Some(session_meta) = items.iter().find_map(|item| match item {
         RolloutItem::SessionMeta(meta_line) => Some(meta_line),
         RolloutItem::ResponseItem(_)
+        | RolloutItem::InterAgentCommunication(_)
         | RolloutItem::Compacted(_)
         | RolloutItem::Merged(_)
         | RolloutItem::TurnContext(_)
@@ -115,12 +116,14 @@ pub async fn extract_metadata_from_rollout(
     }
     if let Some(updated_at) = file_modified_time_utc(rollout_path).await {
         metadata.updated_at = updated_at;
+        metadata.recency_at = updated_at;
     }
     Ok(ExtractionOutcome {
         metadata,
         memory_mode: items.iter().rev().find_map(|item| match item {
             RolloutItem::SessionMeta(meta_line) => meta_line.meta.memory_mode.clone(),
             RolloutItem::ResponseItem(_)
+            | RolloutItem::InterAgentCommunication(_)
             | RolloutItem::Compacted(_)
             | RolloutItem::Merged(_)
             | RolloutItem::TurnContext(_)

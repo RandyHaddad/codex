@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
 
 use anyhow::Result;
 use codex_features::Feature;
@@ -17,6 +17,7 @@ use core_test_support::responses::ev_response_created;
 use core_test_support::responses::mount_sse_once;
 use core_test_support::responses::sse;
 use core_test_support::responses::start_mock_server;
+use core_test_support::test_codex::local_selections;
 use core_test_support::test_codex::test_codex;
 use core_test_support::test_codex::turn_permission_fields;
 use core_test_support::wait_for_event;
@@ -51,12 +52,11 @@ async fn submit_user_turn(
                 text: prompt.into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(test.config.cwd.clone()),
+                environments: Some(local_selections(test.config.cwd.clone())),
                 approval_policy: Some(approval_policy),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -78,9 +78,10 @@ async fn submit_user_turn(
 }
 
 fn assert_no_matched_rules_invariant(output_item: &Value) {
-    let Some(output) = output_item.get("output").and_then(Value::as_str) else {
-        panic!("function_call_output should include string output payload: {output_item:?}");
-    };
+    let output = output_item
+        .get("output")
+        .and_then(Value::as_str)
+        .expect("function call output should include a string output payload");
     assert!(
         !output.contains("invariant failed: matched_rules must be non-empty"),
         "unexpected invariant panic surfaced in output: {output}"
@@ -147,9 +148,10 @@ async fn unified_exec_disabled_windows_sandbox_rejects_managed_read_only_command
     .await;
 
     let output_item = results_mock.single_request().function_call_output(call_id);
-    let Some(output) = output_item.get("output").and_then(Value::as_str) else {
-        panic!("function_call_output should include string output payload: {output_item:?}");
-    };
+    let output = output_item
+        .get("output")
+        .and_then(Value::as_str)
+        .expect("function call output should include a string output payload");
     assert!(
         output.contains("cmd.exe /c dir") && output.contains("rejected: blocked by policy"),
         "unexpected output: {output}",
@@ -210,12 +212,11 @@ async fn execpolicy_blocks_shell_invocation() -> Result<()> {
                 text: "run shell command".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(test.config.cwd.clone()),
+                environments: Some(local_selections(test.config.cwd.clone())),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,

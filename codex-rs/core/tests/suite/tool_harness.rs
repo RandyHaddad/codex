@@ -1,5 +1,6 @@
 #![cfg(not(target_os = "windows"))]
 
+use core_test_support::test_codex::local_selections;
 use std::fs;
 
 use assert_matches::assert_matches;
@@ -35,14 +36,10 @@ fn call_output(req: &ResponsesRequest, call_id: &str) -> (String, Option<bool>) 
         Some(call_id),
         "mismatched call_id in function_call_output"
     );
-    let (content_opt, success) = match req.function_call_output_content_and_success(call_id) {
-        Some(values) => values,
-        None => panic!("function_call_output present"),
-    };
-    let content = match content_opt {
-        Some(c) => c,
-        None => panic!("function_call_output content present"),
-    };
+    let (content_opt, success) = req
+        .function_call_output_content_and_success(call_id)
+        .expect("function_call_output present");
+    let content = content_opt.expect("function_call_output content present");
     (content, success)
 }
 
@@ -53,14 +50,10 @@ fn custom_call_output(req: &ResponsesRequest, call_id: &str) -> (String, Option<
         Some(call_id),
         "mismatched call_id in custom_tool_call_output"
     );
-    let (content_opt, success) = match req.custom_tool_call_output_content_and_success(call_id) {
-        Some(values) => values,
-        None => panic!("custom_tool_call_output present"),
-    };
-    let content = match content_opt {
-        Some(c) => c,
-        None => panic!("custom_tool_call_output content present"),
-    };
+    let (content_opt, success) = req
+        .custom_tool_call_output_content_and_success(call_id)
+        .expect("custom_tool_call_output present");
+    let content = content_opt.expect("custom_tool_call_output content present");
     (content, success)
 }
 
@@ -108,12 +101,11 @@ async fn shell_command_tool_executes_command_and_streams_output() -> anyhow::Res
                 text: "please run the shell command".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -190,12 +182,11 @@ async fn update_plan_tool_emits_plan_update_event() -> anyhow::Result<()> {
                 text: "please update the plan".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -282,12 +273,11 @@ async fn update_plan_tool_rejects_malformed_payload() -> anyhow::Result<()> {
                 text: "please update the plan".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -384,12 +374,11 @@ async fn apply_patch_tool_executes_and_emits_patch_events() -> anyhow::Result<()
                 text: "please apply a patch".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,
@@ -523,12 +512,11 @@ async fn apply_patch_reports_parse_diagnostics() -> anyhow::Result<()> {
                 text: "please apply a patch".into(),
                 text_elements: Vec::new(),
             }],
-            environments: None,
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
             additional_context: Default::default(),
             thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-                cwd: Some(cwd_path),
+                environments: Some(local_selections(cwd_path)),
                 approval_policy: Some(AskForApproval::Never),
                 sandbox_policy: Some(sandbox_policy),
                 permission_profile,

@@ -50,14 +50,6 @@ pub(crate) struct ContextManager {
     reference_context_item: Option<TurnContextItem>,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct TotalTokenUsageBreakdown {
-    pub last_api_response_total_tokens: i64,
-    pub all_history_items_model_visible_bytes: i64,
-    pub estimated_tokens_of_items_added_since_last_successful_api_response: i64,
-    pub estimated_bytes_of_items_added_since_last_successful_api_response: i64,
-}
-
 impl ContextManager {
     pub(crate) fn new() -> Self {
         Self {
@@ -321,32 +313,11 @@ impl ContextManager {
         }
     }
 
-    pub(crate) fn get_total_token_usage_breakdown(&self) -> TotalTokenUsageBreakdown {
-        let last_usage = self
-            .token_info
-            .as_ref()
-            .map(|info| info.last_token_usage.clone())
-            .unwrap_or_default();
-        let items_after_last_model_generated = self.items_after_last_model_generated_item();
-
-        TotalTokenUsageBreakdown {
-            last_api_response_total_tokens: last_usage.total_tokens,
-            all_history_items_model_visible_bytes: self
-                .items
-                .iter()
-                .map(estimate_response_item_model_visible_bytes)
-                .fold(0i64, i64::saturating_add),
-            estimated_tokens_of_items_added_since_last_successful_api_response:
-                items_after_last_model_generated
-                    .iter()
-                    .map(estimate_item_token_count)
-                    .fold(0i64, i64::saturating_add),
-            estimated_bytes_of_items_added_since_last_successful_api_response:
-                items_after_last_model_generated
-                    .iter()
-                    .map(estimate_response_item_model_visible_bytes)
-                    .fold(0i64, i64::saturating_add),
-        }
+    pub(crate) fn estimated_tokens_after_last_model_generated_item(&self) -> i64 {
+        self.items_after_last_model_generated_item()
+            .iter()
+            .map(estimate_item_token_count)
+            .fold(0i64, i64::saturating_add)
     }
 
     /// This function enforces a couple of invariants on the in-memory history:
@@ -367,23 +338,29 @@ impl ContextManager {
     fn process_item(&self, item: &ResponseItem, policy: TruncationPolicy) -> ResponseItem {
         let policy_with_serialization_budget = policy * 1.2;
         match item {
-            ResponseItem::FunctionCallOutput { call_id, output } => {
-                ResponseItem::FunctionCallOutput {
-                    call_id: call_id.clone(),
-                    output: truncate_function_output_payload(
-                        output,
-                        policy_with_serialization_budget,
-                    ),
-                }
-            }
+            ResponseItem::FunctionCallOutput {
+                id,
+                call_id,
+                output,
+                metadata,
+            } => ResponseItem::FunctionCallOutput {
+                id: id.clone(),
+                call_id: call_id.clone(),
+                output: truncate_function_output_payload(output, policy_with_serialization_budget),
+                metadata: metadata.clone(),
+            },
             ResponseItem::CustomToolCallOutput {
+                id,
                 call_id,
                 name,
                 output,
+                metadata,
             } => ResponseItem::CustomToolCallOutput {
+                id: id.clone(),
                 call_id: call_id.clone(),
                 name: name.clone(),
                 output: truncate_function_output_payload(output, policy_with_serialization_budget),
+                metadata: metadata.clone(),
             },
             ResponseItem::Message { .. }
             | ResponseItem::AgentMessage { .. }
@@ -396,7 +373,7 @@ impl ContextManager {
             | ResponseItem::ImageGenerationCall { .. }
             | ResponseItem::CustomToolCall { .. }
             | ResponseItem::Compaction { .. }
-            | ResponseItem::CompactionTrigger
+            | ResponseItem::CompactionTrigger { .. }
             | ResponseItem::ContextCompaction { .. }
             | ResponseItem::Other => item.clone(),
         }
@@ -488,7 +465,7 @@ fn is_api_message(message: &ResponseItem) -> bool {
         | ResponseItem::ImageGenerationCall { .. }
         | ResponseItem::Compaction { .. }
         | ResponseItem::ContextCompaction { .. } => true,
-        ResponseItem::CompactionTrigger => false,
+        ResponseItem::CompactionTrigger { .. } => false,
         ResponseItem::Other => false,
     }
 }
@@ -532,7 +509,7 @@ static ORIGINAL_IMAGE_ESTIMATE_CACHE: LazyLock<BlockingLruCache<[u8; 20], Option
         )
     });
 
-pub(crate) fn estimate_response_item_model_visible_bytes(item: &ResponseItem) -> i64 {
+fn estimate_response_item_model_visible_bytes(item: &ResponseItem) -> i64 {
     match item {
         ResponseItem::Reasoning {
             encrypted_content: Some(content),
@@ -540,9 +517,11 @@ pub(crate) fn estimate_response_item_model_visible_bytes(item: &ResponseItem) ->
         }
         | ResponseItem::Compaction {
             encrypted_content: content,
+            ..
         }
         | ResponseItem::ContextCompaction {
             encrypted_content: Some(content),
+            ..
         } => i64::try_from(estimate_reasoning_length(content.len())).unwrap_or(i64::MAX),
         item => {
             let raw = serde_json::to_string(item)
@@ -718,7 +697,7 @@ fn is_model_generated_item(item: &ResponseItem) -> bool {
         | ResponseItem::LocalShellCall { .. }
         | ResponseItem::Compaction { .. }
         | ResponseItem::ContextCompaction { .. } => true,
-        ResponseItem::CompactionTrigger => false,
+        ResponseItem::CompactionTrigger { .. } => false,
         ResponseItem::FunctionCallOutput { .. }
         | ResponseItem::ToolSearchOutput { .. }
         | ResponseItem::CustomToolCallOutput { .. }

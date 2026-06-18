@@ -35,6 +35,7 @@ use core_test_support::responses::sse;
 use core_test_support::responses::start_mock_server;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_codex::TestCodex;
+use core_test_support::test_codex::local_selections;
 use core_test_support::test_codex::test_codex;
 use core_test_support::test_codex::turn_permission_fields;
 use core_test_support::wait_for_event;
@@ -56,12 +57,11 @@ fn disabled_plan_turn(
             text: text.into(),
             text_elements: Vec::new(),
         }],
-        environments: None,
         final_output_json_schema: None,
         responsesapi_client_metadata: None,
         additional_context: Default::default(),
         thread_settings: codex_protocol::protocol::ThreadSettingsOverrides {
-            cwd: Some(cwd),
+            environments: Some(local_selections(cwd)),
             approval_policy: Some(AskForApproval::Never),
             sandbox_policy: Some(sandbox_policy),
             permission_profile,
@@ -117,7 +117,6 @@ async fn user_message_item_is_emitted() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![expected_input.clone()],
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
@@ -174,7 +173,6 @@ async fn assistant_message_item_is_emitted() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "please summarize results".into(),
                 text_elements: Vec::new(),
@@ -236,7 +234,6 @@ async fn reasoning_item_is_emitted() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "explain your reasoning".into(),
                 text_elements: Vec::new(),
@@ -299,7 +296,6 @@ async fn web_search_item_is_emitted() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "find the weather".into(),
                 text_elements: Vec::new(),
@@ -352,7 +348,7 @@ async fn web_search_item_is_emitted() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn image_generation_call_event_is_emitted() -> anyhow::Result<()> {
+async fn builtin_image_generation_call_persisted() -> anyhow::Result<()> {
     skip_if_no_network!(Ok(()));
 
     let server = start_mock_server().await;
@@ -373,14 +369,13 @@ async fn image_generation_call_event_is_emitted() -> anyhow::Result<()> {
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_image_generation_call(call_id, "completed", "A tiny blue square", "Zm9v"),
+        ev_image_generation_call(call_id, "generating", "A tiny blue square", "Zm9v"),
         ev_completed("resp-1"),
     ]);
     mount_sse_once(&server, first_response).await;
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "generate a tiny blue square".into(),
                 text_elements: Vec::new(),
@@ -427,7 +422,7 @@ async fn image_generation_call_event_is_emitted() -> anyhow::Result<()> {
     assert_eq!(completed.0.id, call_id);
     assert!(completed.1 > 0);
     assert_eq!(end.call_id, call_id);
-    assert_eq!(end.status, "completed");
+    assert_eq!(end.status, "generating");
     assert_eq!(end.revised_prompt, Some("A tiny blue square".to_string()));
     assert_eq!(end.result, "Zm9v");
     assert_eq!(
@@ -468,7 +463,6 @@ async fn image_generation_call_event_is_emitted_when_image_save_fails() -> anyho
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "generate an image".into(),
                 text_elements: Vec::new(),
@@ -525,7 +519,6 @@ async fn agent_message_content_delta_has_item_metadata() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "please stream text".into(),
                 text_elements: Vec::new(),
@@ -1110,7 +1103,6 @@ async fn reasoning_content_delta_has_item_metadata() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "reason through it".into(),
                 text_elements: Vec::new(),
@@ -1166,7 +1158,6 @@ async fn reasoning_raw_content_delta_respects_flag() -> anyhow::Result<()> {
 
     codex
         .submit(Op::UserInput {
-            environments: None,
             items: vec![UserInput::Text {
                 text: "show raw reasoning".into(),
                 text_elements: Vec::new(),

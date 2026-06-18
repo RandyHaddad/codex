@@ -1,9 +1,10 @@
+use super::residency::is_v2_resident_session_source;
 use super::*;
 
 const AGENT_NAMES: &str = include_str!("../agent_names.txt");
 
 struct SpawnAgentThreadInheritance {
-    shell_snapshot: Option<Arc<ShellSnapshot>>,
+    environments: Option<TurnEnvironmentSnapshot>,
     exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
 }
 
@@ -50,10 +51,11 @@ fn keep_forked_rollout_item(item: &RolloutItem, preserve_reference_context_item:
             | ResponseItem::WebSearchCall { .. }
             | ResponseItem::ImageGenerationCall { .. }
             | ResponseItem::Compaction { .. }
-            | ResponseItem::CompactionTrigger
+            | ResponseItem::CompactionTrigger { .. }
             | ResponseItem::ContextCompaction { .. }
             | ResponseItem::Other,
         ) => false,
+        RolloutItem::InterAgentCommunication(_) => false,
         // Full-history forks preserve the cached prompt prefix and can keep diffing
         // from the parent's durable baseline. Truncated forks drop part of that prompt,
         // so they must rebuild context on their first child turn.
@@ -119,6 +121,7 @@ impl AgentControl {
     ) -> CodexResult<()> {
         let state = self.upgrade()?;
         if state.get_thread(thread_id).await.is_ok() {
+            self.touch_loaded_v2_residency(&state, thread_id).await;
             return Ok(());
         }
         if self.state.agent_metadata_for_thread(thread_id).is_none() {
@@ -146,6 +149,9 @@ impl AgentControl {
         if initial_history.get_multi_agent_version() != Some(MultiAgentVersion::V2) {
             return Err(CodexErr::ThreadNotFound(thread_id));
         }
+        let residency_slot = self
+            .reserve_v2_residency_slot(&state, &config, Some(thread_id))
+            .await?;
 
         let (session_source, _) = initial_history
             .get_resumed_session_sources()
@@ -153,8 +159,8 @@ impl AgentControl {
         let parent_thread_id = initial_history
             .get_resumed_parent_thread_id()
             .or(stored_parent_thread_id);
-        let inherited_shell_snapshot = self
-            .inherited_shell_snapshot_for_source(&state, Some(&session_source))
+        let inherited_environments = self
+            .inherited_environments_for_source(&state, Some(&session_source))
             .await;
         let inherited_exec_policy = self
             .inherited_exec_policy_for_source(&state, Some(&session_source), &config)
@@ -167,17 +173,20 @@ impl AgentControl {
                 agent_control: self.clone(),
                 session_source,
                 parent_thread_id,
-                inherited_shell_snapshot,
+                inherited_environments,
                 inherited_exec_policy,
             })
             .await
         {
             Ok(reloaded_thread) => {
+                residency_slot.commit(reloaded_thread.thread_id);
                 state.notify_thread_created(reloaded_thread.thread_id);
                 Ok(())
             }
             Err(err) => {
                 if state.get_thread(thread_id).await.is_ok() {
+                    drop(residency_slot);
+                    self.touch_loaded_v2_residency(&state, thread_id).await;
                     return Ok(());
                 }
                 Err(err)
@@ -202,11 +211,31 @@ impl AgentControl {
                 &config,
             )
             .await;
+        if let Some(session_source) = session_source.as_ref() {
+            self.ensure_execution_capacity(multi_agent_version, session_source)?;
+        }
         let agent_max_threads = config.effective_agent_max_threads(multi_agent_version);
-        let mut reservation = self.state.reserve_spawn_slot(agent_max_threads)?;
+        let spawn_uses_v2_residency = multi_agent_version == MultiAgentVersion::V2
+            && session_source
+                .as_ref()
+                .is_some_and(is_v2_resident_session_source);
+        let residency_slot = if spawn_uses_v2_residency {
+            Some(
+                self.reserve_v2_residency_slot(&state, &config, /*protected_thread_id*/ None)
+                    .await?,
+            )
+        } else {
+            None
+        };
+        let reservation_max_threads = if spawn_uses_v2_residency {
+            None
+        } else {
+            agent_max_threads
+        };
+        let mut reservation = self.state.reserve_spawn_slot(reservation_max_threads)?;
         let inheritance = SpawnAgentThreadInheritance {
-            shell_snapshot: self
-                .inherited_shell_snapshot_for_source(&state, session_source.as_ref())
+            environments: self
+                .inherited_environments_for_source(&state, session_source.as_ref())
                 .await,
             exec_policy: self
                 .inherited_exec_policy_for_source(&state, session_source.as_ref(), &config)
@@ -257,7 +286,7 @@ impl AgentControl {
                     /*forked_from_thread_id*/ None,
                     /*thread_source*/ Some(ThreadSource::Subagent),
                     /*metrics_service_name*/ None,
-                    inheritance.shell_snapshot,
+                    inheritance.environments,
                     inheritance.exec_policy,
                     options.environments.clone(),
                 ))
@@ -267,6 +296,9 @@ impl AgentControl {
         };
         agent_metadata.agent_id = Some(new_thread.thread_id);
         reservation.commit(agent_metadata.clone());
+        if let Some(residency_slot) = residency_slot {
+            residency_slot.commit(new_thread.thread_id);
+        }
 
         if let Some(SessionSource::SubAgent(
             subagent_source @ SubAgentSource::ThreadSpawn {
@@ -324,7 +356,7 @@ impl AgentControl {
         )
         .await;
 
-        self.send_input(new_thread.thread_id, initial_operation)
+        self.send_input_after_capacity_check(new_thread.thread_id, &state, initial_operation)
             .await?;
         if multi_agent_version != MultiAgentVersion::V2 {
             let child_reference = agent_metadata
@@ -357,7 +389,7 @@ impl AgentControl {
         multi_agent_version: MultiAgentVersion,
     ) -> CodexResult<crate::thread_manager::NewThread> {
         let SpawnAgentThreadInheritance {
-            shell_snapshot: inherited_shell_snapshot,
+            environments: inherited_environments,
             exec_policy: inherited_exec_policy,
         } = inheritance;
         if options.fork_parent_spawn_call_id.is_none() {
@@ -492,7 +524,7 @@ impl AgentControl {
                 /*thread_source*/ Some(ThreadSource::Subagent),
                 /*parent_thread_id*/ Some(parent_thread_id),
                 /*forked_from_thread_id*/ Some(parent_thread_id),
-                inherited_shell_snapshot,
+                inherited_environments,
                 inherited_exec_policy,
                 options.environments.clone(),
             )
@@ -507,13 +539,16 @@ impl AgentControl {
         session_source: SessionSource,
     ) -> CodexResult<ThreadId> {
         let root_depth = thread_spawn_depth(&session_source).unwrap_or(0);
-        let resumed_thread_id = Box::pin(self.resume_single_agent_from_rollout(
-            config.clone(),
-            thread_id,
-            session_source,
-        ))
+        let (resumed_thread_id, resumed_multi_agent_version) = Box::pin(
+            self.resume_single_agent_from_rollout(config.clone(), thread_id, session_source),
+        )
         .await?;
         let state = self.upgrade()?;
+        if config.multi_agent_version_from_features() == MultiAgentVersion::V2
+            || resumed_multi_agent_version == MultiAgentVersion::V2
+        {
+            return Ok(resumed_thread_id);
+        }
         let Ok(resumed_thread) = state.get_thread(resumed_thread_id).await else {
             return Ok(resumed_thread_id);
         };
@@ -559,7 +594,7 @@ impl AgentControl {
                     ))
                     .await
                     {
-                        Ok(_) => true,
+                        Ok((_, _)) => true,
                         Err(err) => {
                             warn!("failed to resume descendant thread {child_thread_id}: {err}");
                             false
@@ -580,7 +615,7 @@ impl AgentControl {
         config: Config,
         thread_id: ThreadId,
         session_source: SessionSource,
-    ) -> CodexResult<ThreadId> {
+    ) -> CodexResult<(ThreadId, MultiAgentVersion)> {
         let state = self.upgrade()?;
         let state_db_ctx = state.state_db();
         let stored_thread = state
@@ -641,8 +676,8 @@ impl AgentControl {
             other => (other, AgentMetadata::default()),
         };
         let notification_source = session_source.clone();
-        let inherited_shell_snapshot = self
-            .inherited_shell_snapshot_for_source(&state, Some(&session_source))
+        let inherited_environments = self
+            .inherited_environments_for_source(&state, Some(&session_source))
             .await;
         let inherited_exec_policy = self
             .inherited_exec_policy_for_source(&state, Some(&session_source), &config)
@@ -655,7 +690,7 @@ impl AgentControl {
                 agent_control: self.clone(),
                 session_source,
                 parent_thread_id,
-                inherited_shell_snapshot,
+                inherited_environments,
                 inherited_exec_policy,
             })
             .await?;
@@ -685,6 +720,6 @@ impl AgentControl {
         )
         .await;
 
-        Ok(resumed_thread.thread_id)
+        Ok((resumed_thread.thread_id, multi_agent_version))
     }
 }
