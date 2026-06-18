@@ -906,7 +906,9 @@ async fn reconstruct_history_uses_merged_replacement_history_as_checkpoint() {
     let before = user_message("target asks about auth tests");
     let merged_marker = user_message("Merged context from source session.");
     let source_compaction = ResponseItem::Compaction {
+        id: None,
         encrypted_content: "opaque-source-compact".to_string(),
+        metadata: None,
     };
     let replacement_history = vec![
         before.clone(),

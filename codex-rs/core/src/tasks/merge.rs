@@ -99,7 +99,10 @@ async fn run_merge_task(
     request: MergeRequest,
 ) -> anyhow::Result<()> {
     if !crate::compact::should_use_remote_compact_task(turn_context.provider.info())
-        || !turn_context.features.enabled(Feature::RemoteCompactionV2)
+        || !turn_context
+            .config
+            .features
+            .enabled(Feature::RemoteCompactionV2)
     {
         anyhow::bail!(
             "/merge requires the remote compact runtime; no plaintext/local merge fallback is available"
@@ -219,7 +222,10 @@ async fn compact_source_for_merge(
 ) -> anyhow::Result<Vec<ResponseItem>> {
     let prompt_input = source_history.to_vec();
     let mut input = prompt_input.clone();
-    input.push(ResponseItem::CompactionTrigger);
+    input.push(ResponseItem::CompactionTrigger {
+        id: None,
+        metadata: None,
+    });
     let prompt = Prompt {
         input,
         tools: Vec::new(),
@@ -227,21 +233,33 @@ async fn compact_source_for_merge(
         base_instructions: BaseInstructions {
             text: merge_compact_instructions(request.user_instruction.as_deref()),
         },
-        personality: turn_context.personality,
         output_schema: None,
         output_schema_strict: true,
     };
 
     let mut client_session = sess.services.model_client.new_session();
+    let window_id = sess.current_window_id().await;
+    let compaction_metadata = crate::responses_metadata::CompactionTurnMetadata::new(
+        codex_analytics::CompactionTrigger::Manual,
+        codex_analytics::CompactionReason::UserRequested,
+        codex_analytics::CompactionImplementation::ResponsesCompactionV2,
+        codex_analytics::CompactionPhase::StandaloneTurn,
+    );
+    let responses_metadata = turn_context.turn_metadata_state.to_responses_metadata(
+        sess.installation_id.clone(),
+        window_id,
+        crate::responses_metadata::CodexResponsesRequestKind::Compaction(compaction_metadata),
+    );
     let output = run_remote_compaction_request_v2(
         sess,
         turn_context,
         &mut client_session,
         &prompt,
-        /*turn_metadata_header*/ None,
+        &responses_metadata,
     )
     .await?;
-    let compacted_history = build_v2_compacted_history(&prompt_input, output.compaction_output);
+    let (compacted_history, _) =
+        build_v2_compacted_history(&prompt_input, output.compaction_output);
     Ok(process_compacted_history(
         sess,
         turn_context,

@@ -2812,7 +2812,6 @@ impl Session {
         {
             let mut state = self.state.lock().await;
             state.replace_history(items, reference_context_item.clone());
-            state.start_next_auto_compact_window();
         }
 
         self.persist_rollout_items(&[RolloutItem::Merged(merged_item)])
@@ -2825,7 +2824,6 @@ impl Session {
             let mut state = self.state.lock().await;
             state.queue_pending_session_start_source(codex_hooks::SessionStartSource::Merge);
         }
-        self.services.model_client.advance_window_generation();
     }
 
     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {

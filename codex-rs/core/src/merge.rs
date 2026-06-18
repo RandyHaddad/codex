@@ -50,6 +50,7 @@ pub(crate) fn merge_framing_message(meta: &MergeSourceMetadata) -> ResponseItem 
         role: "developer".to_string(),
         content: vec![ContentItem::InputText { text }],
         phase: None,
+        metadata: None,
     }
 }
 
@@ -78,6 +79,7 @@ mod tests {
                 text: text.to_string(),
             }],
             phase: None,
+            metadata: None,
         }
     }
 
@@ -120,7 +122,9 @@ mod tests {
         let target = vec![message("user", "target")];
         let framing = message("developer", "merge framing");
         let source = vec![ResponseItem::Compaction {
+            id: None,
             encrypted_content: "opaque".to_string(),
+            metadata: None,
         }];
 
         let history = build_target_replacement_history(&target, framing.clone(), source.clone());

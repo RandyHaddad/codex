@@ -5412,6 +5412,7 @@ mod tests {
                 text: "Merged context from source session.".to_string(),
             }],
             phase: None,
+            metadata: None,
         }];
         let item = RolloutItem::Merged(MergedItem {
             target_thread_id,
