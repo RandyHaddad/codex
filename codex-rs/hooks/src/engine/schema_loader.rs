@@ -10,10 +10,14 @@ pub(crate) struct GeneratedHookSchemas {
     pub permission_request_command_output: Value,
     pub post_compact_command_input: Value,
     pub post_compact_command_output: Value,
+    pub post_merge_command_input: Value,
+    pub post_merge_command_output: Value,
     pub pre_tool_use_command_input: Value,
     pub pre_tool_use_command_output: Value,
     pub pre_compact_command_input: Value,
     pub pre_compact_command_output: Value,
+    pub pre_merge_command_input: Value,
+    pub pre_merge_command_output: Value,
     pub session_start_command_input: Value,
     pub session_start_command_output: Value,
     pub subagent_start_command_input: Value,
@@ -53,6 +57,14 @@ pub(crate) fn generated_hook_schemas() -> &'static GeneratedHookSchemas {
             "post-compact.command.output",
             include_str!("../../schema/generated/post-compact.command.output.schema.json"),
         ),
+        post_merge_command_input: parse_json_schema(
+            "post-merge.command.input",
+            include_str!("../../schema/generated/post-merge.command.input.schema.json"),
+        ),
+        post_merge_command_output: parse_json_schema(
+            "post-merge.command.output",
+            include_str!("../../schema/generated/post-merge.command.output.schema.json"),
+        ),
         pre_tool_use_command_input: parse_json_schema(
             "pre-tool-use.command.input",
             include_str!("../../schema/generated/pre-tool-use.command.input.schema.json"),
@@ -68,6 +80,14 @@ pub(crate) fn generated_hook_schemas() -> &'static GeneratedHookSchemas {
         pre_compact_command_output: parse_json_schema(
             "pre-compact.command.output",
             include_str!("../../schema/generated/pre-compact.command.output.schema.json"),
+        ),
+        pre_merge_command_input: parse_json_schema(
+            "pre-merge.command.input",
+            include_str!("../../schema/generated/pre-merge.command.input.schema.json"),
+        ),
+        pre_merge_command_output: parse_json_schema(
+            "pre-merge.command.output",
+            include_str!("../../schema/generated/pre-merge.command.output.schema.json"),
         ),
         session_start_command_input: parse_json_schema(
             "session-start.command.input",
@@ -132,10 +152,14 @@ mod tests {
         assert_eq!(schemas.permission_request_command_output["type"], "object");
         assert_eq!(schemas.post_compact_command_input["type"], "object");
         assert_eq!(schemas.post_compact_command_output["type"], "object");
+        assert_eq!(schemas.post_merge_command_input["type"], "object");
+        assert_eq!(schemas.post_merge_command_output["type"], "object");
         assert_eq!(schemas.pre_tool_use_command_input["type"], "object");
         assert_eq!(schemas.pre_tool_use_command_output["type"], "object");
         assert_eq!(schemas.pre_compact_command_input["type"], "object");
         assert_eq!(schemas.pre_compact_command_output["type"], "object");
+        assert_eq!(schemas.pre_merge_command_input["type"], "object");
+        assert_eq!(schemas.pre_merge_command_output["type"], "object");
         assert_eq!(schemas.session_start_command_input["type"], "object");
         assert_eq!(schemas.session_start_command_output["type"], "object");
         assert_eq!(schemas.subagent_start_command_input["type"], "object");

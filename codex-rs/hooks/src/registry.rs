@@ -9,6 +9,9 @@ use crate::events::compact::PostCompactRequest;
 use crate::events::compact::PreCompactOutcome;
 use crate::events::compact::PreCompactRequest;
 use crate::events::compact::StatelessHookOutcome;
+use crate::events::merge::PostMergeRequest;
+use crate::events::merge::PreMergeOutcome;
+use crate::events::merge::PreMergeRequest;
 use crate::events::permission_request::PermissionRequestOutcome;
 use crate::events::permission_request::PermissionRequestRequest;
 use crate::events::post_tool_use::PostToolUseOutcome;
@@ -177,6 +180,31 @@ impl Hooks {
 
     pub async fn run_post_compact(&self, request: PostCompactRequest) -> StatelessHookOutcome {
         self.engine.run_post_compact(request).await
+    }
+
+    pub fn preview_pre_merge(
+        &self,
+        request: &PreMergeRequest,
+    ) -> Vec<codex_protocol::protocol::HookRunSummary> {
+        self.engine.preview_pre_merge(request)
+    }
+
+    pub async fn run_pre_merge(&self, request: PreMergeRequest) -> PreMergeOutcome {
+        self.engine.run_pre_merge(request).await
+    }
+
+    pub fn preview_post_merge(
+        &self,
+        request: &PostMergeRequest,
+    ) -> Vec<codex_protocol::protocol::HookRunSummary> {
+        self.engine.preview_post_merge(request)
+    }
+
+    pub async fn run_post_merge(
+        &self,
+        request: PostMergeRequest,
+    ) -> crate::events::merge::StatelessHookOutcome {
+        self.engine.run_post_merge(request).await
     }
 
     pub fn preview_user_prompt_submit(

@@ -15,6 +15,8 @@ expression: popup
   PostToolUse           0           0           After a tool executes
   PreCompact            0           0           Before context compaction
   PostCompact           0           0           After context compaction
+  PreMerge              0           0           Before context merge
+  PostMerge             0           0           After context merge
   SessionStart          0           0           When a new session starts
   UserPromptSubmit      0           0           When the user submits a prompt
   SubagentStart         0           0           When a subagent is created

@@ -16,12 +16,14 @@ pub use declarations::plugin_hook_declarations;
 pub use engine::HookListEntry;
 pub use events::common::SubagentHookContext;
 /// Hook event names as they appear in hooks JSON and config files.
-pub const HOOK_EVENT_NAMES: [&str; 10] = [
+pub const HOOK_EVENT_NAMES: [&str; 12] = [
     "PreToolUse",
     "PermissionRequest",
     "PostToolUse",
     "PreCompact",
     "PostCompact",
+    "PreMerge",
+    "PostMerge",
     "SessionStart",
     "UserPromptSubmit",
     "SubagentStart",
@@ -34,12 +36,14 @@ pub const HOOK_EVENT_NAMES: [&str; 10] = [
 /// Other events can appear in hooks JSON, but Codex ignores their matcher
 /// fields because those events do not dispatch against a tool, compaction
 /// trigger, or session-start source.
-pub const HOOK_EVENT_NAMES_WITH_MATCHERS: [&str; 8] = [
+pub const HOOK_EVENT_NAMES_WITH_MATCHERS: [&str; 10] = [
     "PreToolUse",
     "PermissionRequest",
     "PostToolUse",
     "PreCompact",
     "PostCompact",
+    "PreMerge",
+    "PostMerge",
     "SessionStart",
     "SubagentStart",
     "SubagentStop",
@@ -49,6 +53,9 @@ pub use events::compact::PostCompactRequest;
 pub use events::compact::PreCompactOutcome;
 pub use events::compact::PreCompactRequest;
 pub use events::compact::StatelessHookOutcome;
+pub use events::merge::PostMergeRequest;
+pub use events::merge::PreMergeOutcome;
+pub use events::merge::PreMergeRequest;
 pub use events::permission_request::PermissionRequestDecision;
 pub use events::permission_request::PermissionRequestOutcome;
 pub use events::permission_request::PermissionRequestRequest;
@@ -88,6 +95,8 @@ pub fn hook_event_key_label(event_name: HookEventName) -> &'static str {
         HookEventName::PostToolUse => "post_tool_use",
         HookEventName::PreCompact => "pre_compact",
         HookEventName::PostCompact => "post_compact",
+        HookEventName::PreMerge => "pre_merge",
+        HookEventName::PostMerge => "post_merge",
         HookEventName::SessionStart => "session_start",
         HookEventName::UserPromptSubmit => "user_prompt_submit",
         HookEventName::SubagentStart => "subagent_start",

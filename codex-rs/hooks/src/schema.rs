@@ -21,10 +21,14 @@ const PERMISSION_REQUEST_INPUT_FIXTURE: &str = "permission-request.command.input
 const PERMISSION_REQUEST_OUTPUT_FIXTURE: &str = "permission-request.command.output.schema.json";
 const POST_COMPACT_INPUT_FIXTURE: &str = "post-compact.command.input.schema.json";
 const POST_COMPACT_OUTPUT_FIXTURE: &str = "post-compact.command.output.schema.json";
+const POST_MERGE_INPUT_FIXTURE: &str = "post-merge.command.input.schema.json";
+const POST_MERGE_OUTPUT_FIXTURE: &str = "post-merge.command.output.schema.json";
 const PRE_TOOL_USE_INPUT_FIXTURE: &str = "pre-tool-use.command.input.schema.json";
 const PRE_TOOL_USE_OUTPUT_FIXTURE: &str = "pre-tool-use.command.output.schema.json";
 const PRE_COMPACT_INPUT_FIXTURE: &str = "pre-compact.command.input.schema.json";
 const PRE_COMPACT_OUTPUT_FIXTURE: &str = "pre-compact.command.output.schema.json";
+const PRE_MERGE_INPUT_FIXTURE: &str = "pre-merge.command.input.schema.json";
+const PRE_MERGE_OUTPUT_FIXTURE: &str = "pre-merge.command.output.schema.json";
 const SESSION_START_INPUT_FIXTURE: &str = "session-start.command.input.schema.json";
 const SESSION_START_OUTPUT_FIXTURE: &str = "session-start.command.output.schema.json";
 const USER_PROMPT_SUBMIT_INPUT_FIXTURE: &str = "user-prompt-submit.command.input.schema.json";
@@ -107,6 +111,10 @@ pub(crate) enum HookEventNameWire {
     PreCompact,
     #[serde(rename = "PostCompact")]
     PostCompact,
+    #[serde(rename = "PreMerge")]
+    PreMerge,
+    #[serde(rename = "PostMerge")]
+    PostMerge,
     #[serde(rename = "SessionStart")]
     SessionStart,
     #[serde(rename = "UserPromptSubmit")]
@@ -174,6 +182,24 @@ pub(crate) struct PreCompactCommandOutputWire {
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "post-compact.command.output")]
 pub(crate) struct PostCompactCommandOutputWire {
+    #[serde(flatten)]
+    pub universal: HookUniversalOutputWire,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "pre-merge.command.output")]
+pub(crate) struct PreMergeCommandOutputWire {
+    #[serde(flatten)]
+    pub universal: HookUniversalOutputWire,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "post-merge.command.output")]
+pub(crate) struct PostMergeCommandOutputWire {
     #[serde(flatten)]
     pub universal: HookUniversalOutputWire,
 }
@@ -373,6 +399,46 @@ pub(crate) struct PostCompactCommandInput {
     pub hook_event_name: String,
     pub model: String,
     #[schemars(schema_with = "compaction_trigger_schema")]
+    pub trigger: String,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "pre-merge.command.input")]
+pub(crate) struct PreMergeCommandInput {
+    pub session_id: String,
+    /// Codex extension: expose the active turn id to internal turn-scoped hooks.
+    pub turn_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    pub transcript_path: NullableString,
+    pub cwd: String,
+    #[schemars(schema_with = "pre_merge_hook_event_name_schema")]
+    pub hook_event_name: String,
+    pub model: String,
+    #[schemars(schema_with = "merge_trigger_schema")]
+    pub trigger: String,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "post-merge.command.input")]
+pub(crate) struct PostMergeCommandInput {
+    pub session_id: String,
+    /// Codex extension: expose the active turn id to internal turn-scoped hooks.
+    pub turn_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_type: Option<String>,
+    pub transcript_path: NullableString,
+    pub cwd: String,
+    #[schemars(schema_with = "post_merge_hook_event_name_schema")]
+    pub hook_event_name: String,
+    pub model: String,
+    #[schemars(schema_with = "merge_trigger_schema")]
     pub trigger: String,
 }
 
@@ -623,12 +689,28 @@ pub fn write_schema_fixtures(schema_root: &Path) -> anyhow::Result<()> {
         schema_json::<PostCompactCommandOutputWire>()?,
     )?;
     write_schema(
+        &generated_dir.join(POST_MERGE_INPUT_FIXTURE),
+        schema_json::<PostMergeCommandInput>()?,
+    )?;
+    write_schema(
+        &generated_dir.join(POST_MERGE_OUTPUT_FIXTURE),
+        schema_json::<PostMergeCommandOutputWire>()?,
+    )?;
+    write_schema(
         &generated_dir.join(PRE_COMPACT_INPUT_FIXTURE),
         schema_json::<PreCompactCommandInput>()?,
     )?;
     write_schema(
         &generated_dir.join(PRE_COMPACT_OUTPUT_FIXTURE),
         schema_json::<PreCompactCommandOutputWire>()?,
+    )?;
+    write_schema(
+        &generated_dir.join(PRE_MERGE_INPUT_FIXTURE),
+        schema_json::<PreMergeCommandInput>()?,
+    )?;
+    write_schema(
+        &generated_dir.join(PRE_MERGE_OUTPUT_FIXTURE),
+        schema_json::<PreMergeCommandOutputWire>()?,
     )?;
     write_schema(
         &generated_dir.join(PRE_TOOL_USE_INPUT_FIXTURE),
@@ -749,6 +831,14 @@ fn post_compact_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
     string_const_schema("PostCompact")
 }
 
+fn pre_merge_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
+    string_const_schema("PreMerge")
+}
+
+fn post_merge_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
+    string_const_schema("PostMerge")
+}
+
 fn pre_tool_use_hook_event_name_schema(_gen: &mut SchemaGenerator) -> Schema {
     string_const_schema("PreToolUse")
 }
@@ -791,6 +881,10 @@ fn compaction_trigger_schema(_gen: &mut SchemaGenerator) -> Schema {
     string_enum_schema(&["manual", "auto"])
 }
 
+fn merge_trigger_schema(_gen: &mut SchemaGenerator) -> Schema {
+    string_enum_schema(&["manual"])
+}
+
 fn string_const_schema(value: &str) -> Schema {
     let mut schema = SchemaObject {
         instance_type: Some(InstanceType::String.into()),
@@ -825,10 +919,14 @@ mod tests {
     use super::PERMISSION_REQUEST_OUTPUT_FIXTURE;
     use super::POST_COMPACT_INPUT_FIXTURE;
     use super::POST_COMPACT_OUTPUT_FIXTURE;
+    use super::POST_MERGE_INPUT_FIXTURE;
+    use super::POST_MERGE_OUTPUT_FIXTURE;
     use super::POST_TOOL_USE_INPUT_FIXTURE;
     use super::POST_TOOL_USE_OUTPUT_FIXTURE;
     use super::PRE_COMPACT_INPUT_FIXTURE;
     use super::PRE_COMPACT_OUTPUT_FIXTURE;
+    use super::PRE_MERGE_INPUT_FIXTURE;
+    use super::PRE_MERGE_OUTPUT_FIXTURE;
     use super::PRE_TOOL_USE_INPUT_FIXTURE;
     use super::PRE_TOOL_USE_OUTPUT_FIXTURE;
     use super::PermissionRequestCommandInput;
@@ -886,11 +984,23 @@ mod tests {
             POST_COMPACT_OUTPUT_FIXTURE => {
                 include_str!("../schema/generated/post-compact.command.output.schema.json")
             }
+            POST_MERGE_INPUT_FIXTURE => {
+                include_str!("../schema/generated/post-merge.command.input.schema.json")
+            }
+            POST_MERGE_OUTPUT_FIXTURE => {
+                include_str!("../schema/generated/post-merge.command.output.schema.json")
+            }
             PRE_COMPACT_INPUT_FIXTURE => {
                 include_str!("../schema/generated/pre-compact.command.input.schema.json")
             }
             PRE_COMPACT_OUTPUT_FIXTURE => {
                 include_str!("../schema/generated/pre-compact.command.output.schema.json")
+            }
+            PRE_MERGE_INPUT_FIXTURE => {
+                include_str!("../schema/generated/pre-merge.command.input.schema.json")
+            }
+            PRE_MERGE_OUTPUT_FIXTURE => {
+                include_str!("../schema/generated/pre-merge.command.output.schema.json")
             }
             PRE_TOOL_USE_INPUT_FIXTURE => {
                 include_str!("../schema/generated/pre-tool-use.command.input.schema.json")
@@ -963,8 +1073,12 @@ mod tests {
             PERMISSION_REQUEST_OUTPUT_FIXTURE,
             POST_COMPACT_INPUT_FIXTURE,
             POST_COMPACT_OUTPUT_FIXTURE,
+            POST_MERGE_INPUT_FIXTURE,
+            POST_MERGE_OUTPUT_FIXTURE,
             PRE_COMPACT_INPUT_FIXTURE,
             PRE_COMPACT_OUTPUT_FIXTURE,
+            PRE_MERGE_INPUT_FIXTURE,
+            PRE_MERGE_OUTPUT_FIXTURE,
             PRE_TOOL_USE_INPUT_FIXTURE,
             PRE_TOOL_USE_OUTPUT_FIXTURE,
             SESSION_START_INPUT_FIXTURE,

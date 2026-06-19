@@ -43,6 +43,7 @@ use codex_protocol::protocol::ItemCompletedEvent;
 use codex_protocol::protocol::ItemStartedEvent;
 use codex_protocol::protocol::McpToolCallBeginEvent;
 use codex_protocol::protocol::McpToolCallEndEvent;
+use codex_protocol::protocol::MergedItem;
 use codex_protocol::protocol::PatchApplyBeginEvent;
 use codex_protocol::protocol::PatchApplyEndEvent;
 use codex_protocol::protocol::ReviewOutputEvent;
@@ -384,6 +385,7 @@ impl ThreadHistoryBuilder {
         match item {
             RolloutItem::EventMsg(event) => self.handle_event(event),
             RolloutItem::Compacted(payload) => self.handle_compacted(payload),
+            RolloutItem::Merged(payload) => self.handle_merged(payload),
             RolloutItem::ResponseItem(item) => self.handle_response_item(item),
             RolloutItem::InterAgentCommunication(_)
             | RolloutItem::TurnContext(_)
@@ -1256,6 +1258,23 @@ impl ThreadHistoryBuilder {
     /// explicitly opened.
     fn handle_compacted(&mut self, _payload: &CompactedItem) {
         self.ensure_turn().saw_compaction = true;
+    }
+
+    fn handle_merged(&mut self, payload: &MergedItem) {
+        self.ensure_turn().saw_compaction = true;
+        let id = self.next_item_id();
+        self.ensure_turn().items.push(ThreadItem::MergedContext {
+            id,
+            source_thread_id: payload.source_thread_id.to_string(),
+            source_rollout_path: payload.source_rollout_path.clone(),
+            source_thread_name: payload.source_thread_name.clone(),
+            source_cwd: payload.source_cwd.clone(),
+            source_model: payload.source_model.clone(),
+            user_instruction: payload.user_instruction.clone(),
+            imported_at: payload.imported_at.clone(),
+            human_summary: payload.human_summary.clone(),
+            conflict_warnings: payload.conflict_warnings.clone(),
+        });
     }
 
     fn handle_thread_rollback(&mut self, payload: &ThreadRolledBackEvent) {
@@ -3365,6 +3384,63 @@ mod tests {
                 items_view: TurnItemsView::Full,
                 items: Vec::new(),
             }]
+        );
+    }
+
+    #[test]
+    fn builds_visible_marker_from_merged_item() {
+        let target_thread_id = ThreadId::try_from("00000000-0000-0000-0000-000000000001")
+            .expect("valid target thread id");
+        let source_thread_id = ThreadId::try_from("00000000-0000-0000-0000-000000000002")
+            .expect("valid source thread id");
+        let items = vec![
+            RolloutItem::EventMsg(EventMsg::TurnStarted(TurnStartedEvent {
+                turn_id: "turn-merge".into(),
+                trace_id: None,
+                started_at: None,
+                model_context_window: None,
+                collaboration_mode_kind: Default::default(),
+            })),
+            RolloutItem::Merged(MergedItem {
+                target_thread_id,
+                source_thread_id,
+                source_rollout_path: Some(PathBuf::from("/tmp/source.jsonl")),
+                source_thread_name: Some("fix-auth-tests".into()),
+                source_cwd: Some(PathBuf::from("/tmp/repo")),
+                source_model: Some("gpt-5".into()),
+                user_instruction: Some("focus on tests".into()),
+                imported_at: "2026-06-07T12:00:00Z".into(),
+                replacement_history: Vec::new(),
+                human_summary: "Source fixed auth tests.".into(),
+                conflict_warnings: vec!["source cwd differs from target cwd".into()],
+            }),
+            RolloutItem::EventMsg(EventMsg::TurnComplete(TurnCompleteEvent {
+                turn_id: "turn-merge".into(),
+                last_agent_message: None,
+                completed_at: None,
+                duration_ms: None,
+                time_to_first_token_ms: None,
+            })),
+        ];
+
+        let turns = build_turns_from_rollout_items(&items);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(turns[0].id, "turn-merge");
+        assert_eq!(turns[0].items.len(), 1);
+        assert_eq!(
+            turns[0].items[0],
+            ThreadItem::MergedContext {
+                id: "item-1".into(),
+                source_thread_id: source_thread_id.to_string(),
+                source_rollout_path: Some(PathBuf::from("/tmp/source.jsonl")),
+                source_thread_name: Some("fix-auth-tests".into()),
+                source_cwd: Some(PathBuf::from("/tmp/repo")),
+                source_model: Some("gpt-5".into()),
+                user_instruction: Some("focus on tests".into()),
+                imported_at: "2026-06-07T12:00:00Z".into(),
+                human_summary: "Source fixed auth tests.".into(),
+                conflict_warnings: vec!["source cwd differs from target cwd".into()],
+            }
         );
     }
 

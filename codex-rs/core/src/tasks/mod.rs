@@ -1,5 +1,6 @@
 mod compact;
 mod lifecycle;
+mod merge;
 mod regular;
 mod review;
 mod user_shell;
@@ -56,6 +57,7 @@ use codex_protocol::protocol::WarningEvent;
 use codex_features::Feature;
 use codex_protocol::models::ContentItem;
 pub(crate) use compact::CompactTask;
+pub(crate) use merge::MergeTask;
 pub(crate) use regular::RegularTask;
 pub(crate) use review::ReviewTask;
 pub(crate) use user_shell::UserShellCommandMode;
@@ -64,6 +66,7 @@ pub(crate) use user_shell::execute_user_shell_command;
 
 const GRACEFULL_INTERRUPTION_TIMEOUT_MS: u64 = 100;
 const TASK_COMPACT_METRIC: &str = "codex.task.compact";
+const TASK_MERGE_METRIC: &str = "codex.task.merge";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum InterruptedTurnHistoryMarker {
@@ -161,6 +164,10 @@ pub(crate) fn emit_compact_metric(
         /*inc*/ 1,
         &[("type", compact_type), ("manual", bool_tag(manual))],
     );
+}
+
+pub(crate) fn emit_merge_metric(session_telemetry: &SessionTelemetry, merge_type: &'static str) {
+    session_telemetry.counter(TASK_MERGE_METRIC, /*inc*/ 1, &[("type", merge_type)]);
 }
 
 fn bool_tag(value: bool) -> &'static str {

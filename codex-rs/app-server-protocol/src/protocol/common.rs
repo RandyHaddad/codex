@@ -579,6 +579,11 @@ client_request_definitions! {
         serialization: thread_id(params.thread_id),
         response: v2::ThreadCompactStartResponse,
     },
+    ThreadMergeStart => "thread/merge/start" {
+        params: v2::ThreadMergeStartParams,
+        serialization: thread_id(params.thread_id),
+        response: v2::ThreadMergeStartResponse,
+    },
     ThreadShellCommand => "thread/shellCommand" {
         params: v2::ThreadShellCommandParams,
         serialization: thread_id(params.thread_id),

@@ -114,7 +114,9 @@ pub(crate) fn matcher_pattern_for_event(
         | HookEventName::SubagentStart
         | HookEventName::SubagentStop
         | HookEventName::PreCompact
-        | HookEventName::PostCompact => matcher,
+        | HookEventName::PostCompact
+        | HookEventName::PreMerge
+        | HookEventName::PostMerge => matcher,
         HookEventName::UserPromptSubmit | HookEventName::Stop => None,
     }
 }

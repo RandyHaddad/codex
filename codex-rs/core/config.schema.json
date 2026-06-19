@@ -1223,6 +1223,13 @@
           },
           "type": "array"
         },
+        "PostMerge": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/MatcherGroup"
+          },
+          "type": "array"
+        },
         "PostToolUse": {
           "default": [],
           "items": {
@@ -1231,6 +1238,13 @@
           "type": "array"
         },
         "PreCompact": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/MatcherGroup"
+          },
+          "type": "array"
+        },
+        "PreMerge": {
           "default": [],
           "items": {
             "$ref": "#/definitions/MatcherGroup"

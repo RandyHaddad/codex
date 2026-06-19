@@ -1164,6 +1164,7 @@ pub(super) fn extract_memory_mode(items: &[RolloutItem]) -> Option<String> {
         RolloutItem::ResponseItem(_)
         | RolloutItem::InterAgentCommunication(_)
         | RolloutItem::Compacted(_)
+        | RolloutItem::Merged(_)
         | RolloutItem::TurnContext(_)
         | RolloutItem::EventMsg(_) => None,
     })

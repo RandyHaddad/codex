@@ -266,6 +266,7 @@ impl SteerInputError {
                 let turn_kind_label = match turn_kind {
                     NonSteerableTurnKind::Review => "review",
                     NonSteerableTurnKind::Compact => "compact",
+                    NonSteerableTurnKind::Merge => "merge",
                 };
                 ErrorEvent {
                     message: format!("cannot steer a {turn_kind_label} turn"),
@@ -357,6 +358,7 @@ use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::ExecApprovalRequestEvent;
 use codex_protocol::protocol::InitialHistory;
 use codex_protocol::protocol::McpServerRefreshConfig;
+use codex_protocol::protocol::MergedItem;
 use codex_protocol::protocol::ModelRerouteEvent;
 use codex_protocol::protocol::ModelRerouteReason;
 use codex_protocol::protocol::ModelVerification;
@@ -2874,6 +2876,29 @@ impl Session {
         }
     }
 
+    pub(crate) async fn replace_merged_history(
+        &self,
+        items: Vec<ResponseItem>,
+        reference_context_item: Option<TurnContextItem>,
+        merged_item: MergedItem,
+    ) {
+        {
+            let mut state = self.state.lock().await;
+            state.replace_history(items, reference_context_item.clone());
+        }
+
+        self.persist_rollout_items(&[RolloutItem::Merged(merged_item)])
+            .await;
+        if let Some(turn_context_item) = reference_context_item {
+            self.persist_rollout_items(&[RolloutItem::TurnContext(turn_context_item)])
+                .await;
+        }
+        {
+            let mut state = self.state.lock().await;
+            state.queue_pending_session_start_source(codex_hooks::SessionStartSource::Merge);
+        }
+    }
+
     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {
         let rollout_items: Vec<RolloutItem> = items
             .iter()
@@ -3617,6 +3642,11 @@ impl Session {
             crate::state::TaskKind::Compact => {
                 return Err(SteerInputError::ActiveTurnNotSteerable {
                     turn_kind: NonSteerableTurnKind::Compact,
+                });
+            }
+            crate::state::TaskKind::Merge => {
+                return Err(SteerInputError::ActiveTurnNotSteerable {
+                    turn_kind: NonSteerableTurnKind::Merge,
                 });
             }
         }

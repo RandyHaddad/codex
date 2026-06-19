@@ -385,6 +385,7 @@ mod tests {
             vec![
                 "model".to_string(),
                 "memories".to_string(),
+                "merge".to_string(),
                 "mention".to_string(),
                 "mcp".to_string()
             ]

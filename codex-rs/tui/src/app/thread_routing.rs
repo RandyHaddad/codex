@@ -680,6 +680,21 @@ impl App {
                 app_server.thread_compact_start(thread_id).await?;
                 Ok(true)
             }
+            AppCommand::Merge {
+                source_thread_id,
+                source_rollout_path,
+                user_instruction,
+            } => {
+                app_server
+                    .thread_merge_start(
+                        thread_id,
+                        *source_thread_id,
+                        source_rollout_path.clone(),
+                        user_instruction.clone(),
+                    )
+                    .await?;
+                Ok(true)
+            }
             AppCommand::SetThreadName { name } => {
                 app_server
                     .thread_set_name(thread_id, name.to_string())

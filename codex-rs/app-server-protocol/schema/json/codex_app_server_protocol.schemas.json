@@ -547,6 +547,30 @@
             },
             "method": {
               "enum": [
+                "thread/merge/start"
+              ],
+              "title": "Thread/merge/startRequestMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/ThreadMergeStartParams"
+            }
+          },
+          "required": [
+            "id",
+            "method",
+            "params"
+          ],
+          "title": "Thread/merge/startRequest",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/v2/RequestId"
+            },
+            "method": {
+              "enum": [
                 "thread/shellCommand"
               ],
               "title": "Thread/shellCommandRequestMethod",
@@ -10693,6 +10717,8 @@
           "postToolUse",
           "preCompact",
           "postCompact",
+          "preMerge",
+          "postMerge",
           "sessionStart",
           "userPromptSubmit",
           "subagentStart",
@@ -11569,6 +11595,12 @@
             },
             "type": "array"
           },
+          "PostMerge": {
+            "items": {
+              "$ref": "#/definitions/v2/ConfiguredHookMatcherGroup"
+            },
+            "type": "array"
+          },
           "PostToolUse": {
             "items": {
               "$ref": "#/definitions/v2/ConfiguredHookMatcherGroup"
@@ -11576,6 +11608,12 @@
             "type": "array"
           },
           "PreCompact": {
+            "items": {
+              "$ref": "#/definitions/v2/ConfiguredHookMatcherGroup"
+            },
+            "type": "array"
+          },
+          "PreMerge": {
             "items": {
               "$ref": "#/definitions/v2/ConfiguredHookMatcherGroup"
             },
@@ -11633,8 +11671,10 @@
         "required": [
           "PermissionRequest",
           "PostCompact",
+          "PostMerge",
           "PostToolUse",
           "PreCompact",
+          "PreMerge",
           "PreToolUse",
           "SessionStart",
           "Stop",
@@ -12778,7 +12818,8 @@
       "NonSteerableTurnKind": {
         "enum": [
           "review",
-          "compact"
+          "compact",
+          "merge"
         ],
         "type": "string"
       },
@@ -18059,6 +18100,74 @@
             ],
             "title": "ContextCompactionThreadItem",
             "type": "object"
+          },
+          {
+            "properties": {
+              "conflictWarnings": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "humanSummary": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "importedAt": {
+                "type": "string"
+              },
+              "sourceCwd": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceModel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceRolloutPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceThreadId": {
+                "type": "string"
+              },
+              "sourceThreadName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "enum": [
+                  "mergedContext"
+                ],
+                "title": "MergedContextThreadItemType",
+                "type": "string"
+              },
+              "userInstruction": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "humanSummary",
+              "id",
+              "importedAt",
+              "sourceThreadId",
+              "type"
+            ],
+            "title": "MergedContextThreadItem",
+            "type": "object"
           }
         ]
       },
@@ -18252,6 +18361,40 @@
           "disabled"
         ],
         "type": "string"
+      },
+      "ThreadMergeStartParams": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "sourceRolloutPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceThreadId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "userInstruction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sourceThreadId",
+          "threadId"
+        ],
+        "title": "ThreadMergeStartParams",
+        "type": "object"
+      },
+      "ThreadMergeStartResponse": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ThreadMergeStartResponse",
+        "type": "object"
       },
       "ThreadMetadataGitInfoUpdateParams": {
         "properties": {

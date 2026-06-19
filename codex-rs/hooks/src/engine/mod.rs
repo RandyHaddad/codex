@@ -8,6 +8,9 @@ use crate::events::compact::PostCompactRequest;
 use crate::events::compact::PreCompactOutcome;
 use crate::events::compact::PreCompactRequest;
 use crate::events::compact::StatelessHookOutcome;
+use crate::events::merge::PostMergeRequest;
+use crate::events::merge::PreMergeOutcome;
+use crate::events::merge::PreMergeRequest;
 use crate::events::permission_request::PermissionRequestOutcome;
 use crate::events::permission_request::PermissionRequestRequest;
 use crate::events::post_tool_use::PostToolUseOutcome;
@@ -68,6 +71,8 @@ impl ConfiguredHandler {
             codex_protocol::protocol::HookEventName::PostToolUse => "post-tool-use",
             codex_protocol::protocol::HookEventName::PreCompact => "pre-compact",
             codex_protocol::protocol::HookEventName::PostCompact => "post-compact",
+            codex_protocol::protocol::HookEventName::PreMerge => "pre-merge",
+            codex_protocol::protocol::HookEventName::PostMerge => "post-merge",
             codex_protocol::protocol::HookEventName::SessionStart => "session-start",
             codex_protocol::protocol::HookEventName::UserPromptSubmit => "user-prompt-submit",
             codex_protocol::protocol::HookEventName::SubagentStart => "subagent-start",
@@ -230,6 +235,25 @@ impl ClaudeHooksEngine {
         request: PostCompactRequest,
     ) -> StatelessHookOutcome {
         crate::events::compact::run_post(&self.handlers, &self.shell, request).await
+    }
+
+    pub(crate) fn preview_pre_merge(&self, request: &PreMergeRequest) -> Vec<HookRunSummary> {
+        crate::events::merge::preview_pre(&self.handlers, request)
+    }
+
+    pub(crate) async fn run_pre_merge(&self, request: PreMergeRequest) -> PreMergeOutcome {
+        crate::events::merge::run_pre(&self.handlers, &self.shell, request).await
+    }
+
+    pub(crate) fn preview_post_merge(&self, request: &PostMergeRequest) -> Vec<HookRunSummary> {
+        crate::events::merge::preview_post(&self.handlers, request)
+    }
+
+    pub(crate) async fn run_post_merge(
+        &self,
+        request: PostMergeRequest,
+    ) -> crate::events::merge::StatelessHookOutcome {
+        crate::events::merge::run_post(&self.handlers, &self.shell, request).await
     }
 
     pub(crate) fn preview_user_prompt_submit(

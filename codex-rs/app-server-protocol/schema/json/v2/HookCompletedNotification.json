@@ -12,6 +12,8 @@
         "postToolUse",
         "preCompact",
         "postCompact",
+        "preMerge",
+        "postMerge",
         "sessionStart",
         "userPromptSubmit",
         "subagentStart",

@@ -420,6 +420,12 @@ pub struct ManagedHooksRequirements {
     #[serde(rename = "PostCompact")]
     #[ts(rename = "PostCompact")]
     pub post_compact: Vec<ConfiguredHookMatcherGroup>,
+    #[serde(rename = "PreMerge")]
+    #[ts(rename = "PreMerge")]
+    pub pre_merge: Vec<ConfiguredHookMatcherGroup>,
+    #[serde(rename = "PostMerge")]
+    #[ts(rename = "PostMerge")]
+    pub post_merge: Vec<ConfiguredHookMatcherGroup>,
     #[serde(rename = "SessionStart")]
     #[ts(rename = "SessionStart")]
     pub session_start: Vec<ConfiguredHookMatcherGroup>,

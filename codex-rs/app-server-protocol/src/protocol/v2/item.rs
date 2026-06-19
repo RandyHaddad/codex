@@ -384,6 +384,31 @@ pub enum ThreadItem {
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
     ContextCompaction { id: String },
+    #[serde(rename_all = "camelCase")]
+    #[ts(rename_all = "camelCase")]
+    MergedContext {
+        id: String,
+        source_thread_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        source_rollout_path: Option<PathBuf>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        source_thread_name: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        source_cwd: Option<PathBuf>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        source_model: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        user_instruction: Option<String>,
+        imported_at: String,
+        human_summary: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        conflict_warnings: Vec<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema, TS)]
@@ -423,7 +448,8 @@ impl ThreadItem {
             | ThreadItem::ImageGeneration { id, .. }
             | ThreadItem::EnteredReviewMode { id, .. }
             | ThreadItem::ExitedReviewMode { id, .. }
-            | ThreadItem::ContextCompaction { id, .. } => id,
+            | ThreadItem::ContextCompaction { id, .. }
+            | ThreadItem::MergedContext { id, .. } => id,
         }
     }
 }

@@ -1164,6 +1164,8 @@ fn analytics_hook_event_name(event_name: HookEventName) -> &'static str {
         HookEventName::PostToolUse => "PostToolUse",
         HookEventName::PreCompact => "PreCompact",
         HookEventName::PostCompact => "PostCompact",
+        HookEventName::PreMerge => "PreMerge",
+        HookEventName::PostMerge => "PostMerge",
         HookEventName::SessionStart => "SessionStart",
         HookEventName::UserPromptSubmit => "UserPromptSubmit",
         HookEventName::SubagentStart => "SubagentStart",

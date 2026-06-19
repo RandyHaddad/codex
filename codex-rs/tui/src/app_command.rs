@@ -9,6 +9,7 @@ use codex_app_server_protocol::ReviewTarget;
 use codex_app_server_protocol::ToolRequestUserInputResponse;
 use codex_app_server_protocol::UserInput;
 use codex_config::types::ApprovalsReviewer;
+use codex_protocol::ThreadId;
 use codex_protocol::approvals::GuardianAssessmentEvent;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::Personality;
@@ -89,6 +90,11 @@ pub(crate) enum AppCommand {
         force_reload: bool,
     },
     Compact,
+    Merge {
+        source_thread_id: ThreadId,
+        source_rollout_path: Option<PathBuf>,
+        user_instruction: Option<String>,
+    },
     SetThreadName {
         name: String,
     },
@@ -247,6 +253,18 @@ impl AppCommand {
         Self::Compact
     }
 
+    pub(crate) fn merge(
+        source_thread_id: ThreadId,
+        source_rollout_path: Option<PathBuf>,
+        user_instruction: Option<String>,
+    ) -> Self {
+        Self::Merge {
+            source_thread_id,
+            source_rollout_path,
+            user_instruction,
+        }
+    }
+
     pub(crate) fn set_thread_name(name: String) -> Self {
         Self::SetThreadName { name }
     }
@@ -270,6 +288,10 @@ impl AppCommand {
 
     pub(crate) fn is_review(&self) -> bool {
         matches!(self, Self::Review { .. })
+    }
+
+    pub(crate) fn is_merge(&self) -> bool {
+        matches!(self, Self::Merge { .. })
     }
 }
 

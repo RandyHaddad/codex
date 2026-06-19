@@ -52,7 +52,9 @@ pub(crate) fn select_handlers_for_matcher_inputs(
             | HookEventName::SubagentStart
             | HookEventName::SubagentStop
             | HookEventName::PreCompact
-            | HookEventName::PostCompact => {
+            | HookEventName::PostCompact
+            | HookEventName::PreMerge
+            | HookEventName::PostMerge => {
                 if matcher_inputs.is_empty() {
                     matches_matcher(handler.matcher.as_deref(), /*input*/ None)
                 } else {
@@ -147,6 +149,8 @@ fn scope_for_event(event_name: HookEventName) -> HookScope {
         | HookEventName::PostToolUse
         | HookEventName::PreCompact
         | HookEventName::PostCompact
+        | HookEventName::PreMerge
+        | HookEventName::PostMerge
         | HookEventName::UserPromptSubmit
         | HookEventName::SubagentStop
         | HookEventName::Stop => HookScope::Turn,

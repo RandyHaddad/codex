@@ -223,6 +223,47 @@ fn fallback_transcript_cell(item: &ThreadItem) -> Option<PlainHistoryCell> {
         ThreadItem::ContextCompaction { .. } => {
             vec!["context compacted".dim().into()]
         }
+        ThreadItem::MergedContext {
+            source_thread_id,
+            source_thread_name,
+            source_cwd,
+            source_model,
+            user_instruction,
+            human_summary,
+            conflict_warnings,
+            ..
+        } => {
+            let source = source_thread_name
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or(source_thread_id);
+            let mut lines: Vec<Line<'static>> =
+                vec![vec!["merged context: ".dim(), source.to_string().into()].into()];
+            if !human_summary.trim().is_empty() {
+                lines.push(vec!["summary: ".dim(), human_summary.trim().to_string().into()].into());
+            }
+            if let Some(instruction) = user_instruction
+                .as_deref()
+                .filter(|instruction| !instruction.trim().is_empty())
+            {
+                lines.push(
+                    vec!["instruction: ".dim(), instruction.trim().to_string().into()].into(),
+                );
+            }
+            if let Some(model) = source_model
+                .as_deref()
+                .filter(|model| !model.trim().is_empty())
+            {
+                lines.push(format!("source model: {model}").dim().into());
+            }
+            if let Some(cwd) = source_cwd {
+                lines.push(format!("source cwd: {}", cwd.display()).dim().into());
+            }
+            for warning in conflict_warnings {
+                lines.push(vec!["warning: ".dim(), warning.clone().into()].into());
+            }
+            lines
+        }
         ThreadItem::UserMessage { .. }
         | ThreadItem::AgentMessage { .. }
         | ThreadItem::Plan { .. }

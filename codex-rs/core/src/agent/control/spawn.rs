@@ -60,7 +60,10 @@ fn keep_forked_rollout_item(item: &RolloutItem, preserve_reference_context_item:
         // from the parent's durable baseline. Truncated forks drop part of that prompt,
         // so they must rebuild context on their first child turn.
         RolloutItem::TurnContext(_) => preserve_reference_context_item,
-        RolloutItem::Compacted(_) | RolloutItem::EventMsg(_) | RolloutItem::SessionMeta(_) => true,
+        RolloutItem::Compacted(_)
+        | RolloutItem::Merged(_)
+        | RolloutItem::EventMsg(_)
+        | RolloutItem::SessionMeta(_) => true,
     }
 }
 
@@ -484,6 +487,14 @@ impl AgentControl {
                 && let Some(replacement_history) = compacted.replacement_history.as_mut()
             {
                 replacement_history.retain(|response_item| {
+                    !is_multi_agent_v2_usage_hint_message(
+                        response_item,
+                        &multi_agent_v2_usage_hint_texts_to_filter,
+                    )
+                });
+            }
+            if let RolloutItem::Merged(merged) = item {
+                merged.replacement_history.retain(|response_item| {
                     !is_multi_agent_v2_usage_hint_message(
                         response_item,
                         &multi_agent_v2_usage_hint_texts_to_filter,

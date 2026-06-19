@@ -326,12 +326,12 @@ async fn run_remote_compact_task_inner_impl(
     Ok(())
 }
 
-struct RemoteCompactionV2Output {
-    compaction_output: ResponseItem,
-    token_usage: Option<TokenUsage>,
+pub(crate) struct RemoteCompactionV2Output {
+    pub(crate) compaction_output: ResponseItem,
+    pub(crate) token_usage: Option<TokenUsage>,
 }
 
-async fn run_remote_compaction_request_v2(
+pub(crate) async fn run_remote_compaction_request_v2(
     sess: &Session,
     turn_context: &TurnContext,
     client_session: &mut ModelClientSession,
@@ -431,7 +431,7 @@ async fn collect_compaction_output(
     })
 }
 
-fn build_v2_compacted_history(
+pub(crate) fn build_v2_compacted_history(
     prompt_input: &[ResponseItem],
     compaction_output: ResponseItem,
 ) -> (Vec<ResponseItem>, usize) {
